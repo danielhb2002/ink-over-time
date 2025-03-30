@@ -14,6 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const timeframeResult = document.getElementById('timeframeResult');
   const newImageButton = document.getElementById('newImageButton');
   const loadingOverlay = document.getElementById('loadingOverlay');
+  const paymentModal = document.getElementById('paymentModal');
+  const closeModalBtn = document.querySelector('.close');
+  const paymentMessage = document.getElementById('payment-message');
+
+  // Stripe elements
+  let stripe = null;
+  let elements = null;
+  let paymentElement = null;
+  let processingToken = null;
+
+  // Initialize Stripe if available
+  if (typeof Stripe !== 'undefined' && stripePublicKey) {
+    stripe = Stripe(stripePublicKey);
+  }
 
   // Drag and drop functionality
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -105,6 +119,128 @@ document.addEventListener('DOMContentLoaded', () => {
     processButton.disabled = !(hasFile && hasTimeframe);
   }
 
+  // Modal close button
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+      paymentModal.classList.remove('show');
+    });
+  }
+
+  // Initialize payment form
+  async function initializePayment() {
+    if (!stripe) {
+      showError('Payment system is not available');
+      return false;
+    }
+
+    try {
+      // Create a payment intent on the server
+      const response = await fetch('/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create payment intent');
+      }
+      
+      const data = await response.json();
+      processingToken = data.processingToken;
+      
+      // Create the payment form elements
+      elements = stripe.elements({
+        clientSecret: data.clientSecret,
+        appearance: {
+          theme: 'stripe',
+          variables: {
+            colorPrimary: '#6b62fd',
+          }
+        }
+      });
+      
+      // Create and mount the payment element
+      paymentElement = elements.create('payment');
+      paymentElement.mount('#payment-element');
+      
+      return true;
+    } catch (error) {
+      console.error('Error initializing payment:', error);
+      showError('Error initializing payment: ' + error.message);
+      return false;
+    }
+  }
+
+  // Process payment
+  async function processPayment() {
+    if (!stripe || !elements) {
+      showError('Payment system is not available');
+      return false;
+    }
+    
+    showPaymentMessage('Processing payment...');
+    document.getElementById('submit-payment').disabled = true;
+    document.getElementById('spinner').classList.remove('hidden');
+    document.getElementById('button-text').textContent = 'Processing...';
+    
+    try {
+      // Submit payment to Stripe
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.origin, // Not used, we stay on the same page
+        },
+        redirect: 'if_required'
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Verify payment on the server
+      const verifyResponse = await fetch('/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processingToken })
+      });
+      
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json();
+        throw new Error(errorData.error || 'Payment verification failed');
+      }
+      
+      showPaymentMessage('Payment successful!', 'success');
+      paymentModal.classList.remove('show');
+      return true;
+    } catch (error) {
+      console.error('Payment error:', error);
+      showPaymentMessage(error.message || 'Payment failed');
+      document.getElementById('submit-payment').disabled = false;
+      document.getElementById('spinner').classList.add('hidden');
+      document.getElementById('button-text').textContent = 'Pay Now';
+      return false;
+    }
+  }
+
+  // Show payment message
+  function showPaymentMessage(message, type = 'error') {
+    paymentMessage.textContent = message;
+    paymentMessage.className = 'payment-message';
+    if (type === 'success') {
+      paymentMessage.classList.add('success');
+    }
+    paymentMessage.classList.remove('hidden');
+  }
+
+  // Handle payment form submission
+  document.getElementById('submit-payment')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const success = await processPayment();
+    if (success) {
+      // Continue with image processing
+      processImageWithPayment();
+    }
+  });
+
   // Handle form submission
   tattooForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -119,11 +255,28 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
+    // Initialize payment and show modal
+    paymentModal.classList.add('show');
+    
+    // Clear any previous payment messages
+    paymentMessage.textContent = '';
+    paymentMessage.classList.add('hidden');
+    
+    // Initialize the payment form
+    const initialized = await initializePayment();
+    if (!initialized) {
+      paymentModal.classList.remove('show');
+    }
+  });
+  
+  // Process image after payment
+  async function processImageWithPayment() {
     showLoading(true);
     
     const formData = new FormData();
     formData.append('tattooImage', fileInput.files[0]);
     formData.append('timeframe', timeframeSelect.value);
+    formData.append('processingToken', processingToken);
     
     try {
       const response = await fetch('/process-image', {
@@ -134,7 +287,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) {
         const errorData = await response.json();
         
-        if (errorData.error === 'OpenAI API key not configured') {
+        if (errorData.error === 'Payment required') {
+          throw new Error('Payment is required to process your image');
+        } else if (errorData.error === 'OpenAI API key not configured') {
           throw new Error(`${errorData.error}: ${errorData.details}`);
         } else {
           throw new Error(errorData.error || 'Error processing image');
@@ -169,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       showLoading(false);
     }
-  });
+  }
 
   // Handle new image button
   newImageButton.addEventListener('click', () => {
@@ -178,6 +333,13 @@ document.addEventListener('DOMContentLoaded', () => {
     previewContainer.classList.add('hidden');
     resultsSection.classList.add('hidden');
     tattooForm.classList.remove('hidden');
+    
+    // Remove any demo warnings if they exist
+    const demoWarning = resultsSection.querySelector('.demo-warning');
+    if (demoWarning) {
+      demoWarning.remove();
+    }
+    
     updateSubmitButton();
   });
   
