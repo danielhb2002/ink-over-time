@@ -614,4 +614,26 @@ footer {
 
 #skip-payment:hover {
   background-color: #5a6268;
+}
+
+.dev-process-button {
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  border-radius: var(--radius);
+  background-color: #17a2b8;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.dev-process-button:hover {
+  background-color: #138496;
 } 

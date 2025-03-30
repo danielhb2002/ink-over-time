@@ -300,6 +300,51 @@ document.addEventListener('DOMContentLoaded', () => {
     processImageWithPayment();
   });
 
+  // Handle direct development process button
+  document.getElementById('devProcessButton')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    console.log('Development mode: Direct processing');
+    
+    if (!fileInput.files.length) {
+      showError('Please select an image');
+      return;
+    }
+    
+    if (!timeframeSelect.value) {
+      showError('Please select a timeframe');
+      return;
+    }
+
+    // Show loading overlay immediately
+    loadingOverlay.classList.remove('hidden');
+    
+    // Create a token for processing
+    try {
+      console.log('Creating development token...');
+      const response = await fetch('/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create processing token');
+      }
+      
+      const data = await response.json();
+      processingToken = data.processingToken;
+      
+      // Force token to be considered paid on the client side
+      console.log('Development token created, proceeding with image processing');
+      
+      // Process the image
+      processImageWithPayment();
+    } catch (error) {
+      console.error('Error in development processing:', error);
+      showError('Error: ' + error.message);
+      loadingOverlay.classList.add('hidden');
+    }
+  });
+
   // Handle form submission
   tattooForm.addEventListener('submit', async (e) => {
     e.preventDefault();
