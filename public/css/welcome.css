@@ -1,4 +1,16 @@
 /* Welcome Page Styles */
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: #0c0c0e;
+    color: #fff;
+    min-height: 100vh;
+    background-image: none;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
 .welcome-page {
     background-color: #0c0c0e;
     color: #fff;
