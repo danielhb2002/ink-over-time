@@ -114,12 +114,16 @@ app.get('/', (req, res) => {
     ? process.env.STRIPE_LIVE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY 
     : process.env.STRIPE_PUBLIC_KEY;
   
+  // Add canonical URL for SEO
+  const canonicalUrl = 'https://ink-over-time.onrender.com/';
+  
   res.render('index', { 
     apiKeyConfigured, 
     demoMode,
     process: { env: { NODE_ENV: process.env.NODE_ENV || 'production' } },
     stripePublicKey: stripePublicKey || 'pk_test_placeholder',
-    paymentAmount: (PAYMENT_AMOUNT / 100).toFixed(2) // Convert to pounds for display
+    paymentAmount: (PAYMENT_AMOUNT / 100).toFixed(2), // Convert to pounds for display
+    canonicalUrl
   });
 });
 

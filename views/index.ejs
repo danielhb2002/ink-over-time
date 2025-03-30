@@ -3,6 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="See how your tattoo will age over time with AI prediction. Upload your tattoo photo and visualize how it might look in 5, 10, or 20 years.">
+    <meta name="keywords" content="tattoo aging, tattoo fading, aged tattoo, tattoo over time, tattoo prediction, tattoo future, tattoo visualization, AI tattoo aging">
+    <meta name="author" content="InkOverTime">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="Ink Over Time - See How Your Tattoo Will Age">
+    <meta property="og:description" content="Upload your tattoo photo and see how it might look after 5, 10, or 20 years with our AI prediction tool.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<%= canonicalUrl %>">
+    <meta property="og:image" content="<%= canonicalUrl %>img/og-image.jpg">
+    
+    <link rel="canonical" href="<%= canonicalUrl %>">
     <title>Ink Over Time - See How Your Tattoo Will Age</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="/css/styles.css">
@@ -27,6 +41,24 @@
             debugElement.dataset.mode = isLiveStripe ? 'live' : 'test';
             document.body.appendChild(debugElement);
         });
+    </script>
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Ink Over Time",
+      "url": "<%= canonicalUrl %>",
+      "description": "See how your tattoo will age over time with AI prediction. Upload your tattoo photo and visualize how it might look in 5, 10, or 20 years.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "All",
+      "offers": {
+        "@type": "Offer",
+        "price": "<%= paymentAmount %>",
+        "priceCurrency": "GBP"
+      }
+    }
     </script>
 </head>
 <body>
