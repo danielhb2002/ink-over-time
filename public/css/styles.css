@@ -588,4 +588,30 @@ footer {
 
 .fas.fa-info-circle:before {
   content: "ℹ️";
+}
+
+/* Development mode styling */
+.dev-options {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--light-gray);
+  text-align: center;
+}
+
+.mt-1 {
+  margin-top: 5px;
+}
+
+.mt-2 {
+  margin-top: 10px;
+}
+
+#skip-payment {
+  width: 100%;
+  background-color: #6c757d;
+  margin-top: 10px;
+}
+
+#skip-payment:hover {
+  background-color: #5a6268;
 } 

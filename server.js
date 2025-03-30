@@ -74,6 +74,7 @@ app.get('/', (req, res) => {
   res.render('index', { 
     apiKeyConfigured, 
     demoMode,
+    process: { env: { NODE_ENV: process.env.NODE_ENV || 'production' } },
     stripePublicKey: process.env.STRIPE_PUBLIC_KEY || 'pk_test_placeholder',
     paymentAmount: (PAYMENT_AMOUNT / 100).toFixed(2) // Convert to pounds for display
   });
@@ -178,7 +179,14 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
     
     const tokenData = processingTokens.get(processingToken);
     if (!tokenData.paid) {
-      return res.status(402).json({ error: 'Payment required' });
+      // In development mode, allow processing even without payment
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Development mode: Allowing processing without payment verification');
+        tokenData.paid = true;
+        processingTokens.set(processingToken, tokenData);
+      } else {
+        return res.status(402).json({ error: 'Payment required' });
+      }
     }
     
     // Continue with the rest of the processing

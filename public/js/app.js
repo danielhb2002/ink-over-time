@@ -159,10 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       // Create and mount the payment element
-      paymentElement = elements.create('payment', {
-        // In test mode, we can safely ignore domain verification warnings
-        loader: 'auto'
-      });
+      paymentElement = elements.create('payment');
       paymentElement.mount('#payment-element');
       
       // Add event listener for when the element is ready
@@ -270,6 +267,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Handle development mode skip payment
+  document.getElementById('skip-payment')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    console.log('Development mode: Skipping payment');
+    
+    // Mark as success in development mode
+    paymentModal.classList.remove('show');
+    
+    // Create a token for processing
+    if (!processingToken) {
+      try {
+        const response = await fetch('/create-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to create token');
+          return;
+        }
+        
+        const data = await response.json();
+        processingToken = data.processingToken;
+      } catch (error) {
+        console.error('Error creating token:', error);
+        return;
+      }
+    }
+    
+    // Continue with image processing
+    processImageWithPayment();
+  });
+
   // Handle form submission
   tattooForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -283,6 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
       showError('Please select a timeframe');
       return;
     }
+    
+    console.log('Form submitted, showing payment modal');
     
     // Show and initialize payment modal
     paymentModal.classList.add('show');
@@ -300,22 +332,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Initialize the payment form
-    const initialized = await initializePayment();
-    if (!initialized) {
-      showPaymentMessage('Could not initialize payment system. Please try again.');
+    try {
+      const initialized = await initializePayment();
+      if (!initialized) {
+        showPaymentMessage('Could not initialize payment system. Please try again.');
+      } else {
+        console.log('Payment form initialized successfully');
+      }
+    } catch (error) {
+      console.error('Error initializing payment:', error);
+      showPaymentMessage('Payment initialization error: ' + error.message);
     }
   });
   
   // Process image after payment
   async function processImageWithPayment() {
-    showLoading(true);
+    console.log('Processing image with payment token:', processingToken);
     
+    // Show loading overlay
+    loadingOverlay.classList.remove('hidden');
+    
+    // Create FormData for the file upload
     const formData = new FormData();
     formData.append('tattooImage', fileInput.files[0]);
     formData.append('timeframe', timeframeSelect.value);
     formData.append('processingToken', processingToken);
     
     try {
+      console.log('Sending image for processing...');
+      
+      // Send the image for processing
       const response = await fetch('/process-image', {
         method: 'POST',
         body: formData
@@ -323,43 +369,28 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (!response.ok) {
         const errorData = await response.json();
-        
-        if (errorData.error === 'Payment required') {
-          throw new Error('Payment is required to process your image');
-        } else if (errorData.error === 'OpenAI API key not configured') {
-          throw new Error(`${errorData.error}: ${errorData.details}`);
-        } else {
-          throw new Error(errorData.error || 'Error processing image');
-        }
+        console.error('Server returned error:', errorData);
+        throw new Error(errorData.error || 'Image processing failed');
       }
       
       const data = await response.json();
+      console.log('Processing successful, received data:', data);
       
-      // Display results
+      // Display the results
       originalImage.src = data.originalImage;
       processedImage.src = data.processedImage;
       timeframeResult.textContent = data.timeframe;
       
-      // Show demo mode message if applicable
-      if (data.demoMode) {
-        const demoWarning = document.createElement('div');
-        demoWarning.className = 'demo-warning';
-        demoWarning.innerHTML = `
-          <i class="fas fa-info-circle"></i>
-          <p>You're viewing a demo image. Your API key doesn't have sufficient credits to generate real results. 
-          Add credits to your OpenAI account or use a different API key to get actual results.</p>
-        `;
-        resultsSection.prepend(demoWarning);
-      }
-      
-      // Show results section
-      tattooForm.classList.add('hidden');
+      // Show results section, hide form
       resultsSection.classList.remove('hidden');
       
+      // Hide loading overlay
+      loadingOverlay.classList.add('hidden');
+      
     } catch (error) {
-      showError(error.message || 'An unexpected error occurred');
-    } finally {
-      showLoading(false);
+      console.error('Error processing image:', error);
+      showError(error.message || 'Error processing the image. Please try again.');
+      loadingOverlay.classList.add('hidden');
     }
   }
 
