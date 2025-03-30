@@ -129,8 +129,37 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize payment form
   async function initializePayment() {
     if (!stripe) {
-      showError('Payment system is not available');
-      return false;
+      console.warn('Stripe is not available, but we will continue in development mode');
+      
+      try {
+        // Try to create a payment token even without Stripe
+        const response = await fetch('/create-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to create payment intent');
+        }
+        
+        const data = await response.json();
+        processingToken = data.processingToken;
+        
+        if (data.devMode) {
+          console.log('Development mode payment initialized');
+          return true;
+        }
+        
+        // If we're not in dev mode but Stripe is missing, we can't proceed
+        if (!stripe) {
+          showError('Payment system is not available');
+          return false;
+        }
+      } catch (error) {
+        console.error('Error in dev mode initialization:', error);
+        showError('Error initializing payment: ' + error.message);
+        return false;
+      }
     }
 
     try {
@@ -146,6 +175,12 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const data = await response.json();
       processingToken = data.processingToken;
+      
+      // Check if we're in development mode
+      if (data.devMode) {
+        console.log('Development mode detected, skipping Stripe Elements');
+        return true;
+      }
       
       // Create the payment form elements
       elements = stripe.elements({
@@ -188,8 +223,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // Process payment
   async function processPayment() {
     if (!stripe || !elements) {
-      showError('Payment system is not available');
-      return false;
+      console.log('Stripe or elements not available, trying development mode');
+      
+      // Try to verify in development mode
+      try {
+        // Verify payment on the server
+        const verifyResponse = await fetch('/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ processingToken })
+        });
+        
+        if (!verifyResponse.ok) {
+          const errorData = await verifyResponse.json();
+          throw new Error(errorData.error || 'Payment verification failed');
+        }
+        
+        const responseData = await verifyResponse.json();
+        
+        if (!responseData.success) {
+          throw new Error('Payment verification failed');
+        }
+        
+        showPaymentMessage('Payment successful!', 'success');
+        paymentModal.classList.remove('show');
+        return true;
+      } catch (error) {
+        console.error('Development mode payment error:', error);
+        showPaymentMessage(error.message || 'Payment failed');
+        document.getElementById('submit-payment').disabled = false;
+        document.getElementById('spinner').classList.add('hidden');
+        document.getElementById('button-text').textContent = 'Pay Now';
+        return false;
+      }
     }
     
     showPaymentMessage('Processing payment...');
@@ -269,6 +335,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle payment form submission
   document.getElementById('submit-payment')?.addEventListener('click', async (e) => {
     e.preventDefault();
+    
+    // Check if we're in dev mode with a pre-paid token
+    if (!stripe || !elements) {
+      console.log('Development mode: proceeding directly to image processing');
+      paymentModal.classList.remove('show');
+      processImageWithPayment();
+      return;
+    }
+    
     const success = await processPayment();
     if (success) {
       // Continue with image processing
