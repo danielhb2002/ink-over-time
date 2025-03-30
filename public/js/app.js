@@ -169,14 +169,23 @@ document.addEventListener('DOMContentLoaded', () => {
       paymentElement.mount('#payment-element');
       
       // Add event listener for when the element is ready
-      paymentElement.on('ready', function(event) {
-        console.log('Payment element ready');
+      return new Promise((resolve) => {
+        paymentElement.on('ready', function() {
+          console.log('Payment element ready');
+          document.getElementById('submit-payment').disabled = false;
+          resolve(true);
+        });
+        
+        // Add error listener
+        paymentElement.on('loaderror', function(event) {
+          console.error('Payment element loading error:', event);
+          showPaymentMessage('Error loading payment form: ' + (event.error?.message || 'Unknown error'));
+          resolve(false);
+        });
       });
-      
-      return true;
     } catch (error) {
       console.error('Error initializing payment:', error);
-      showError('Error initializing payment: ' + error.message);
+      showPaymentMessage('Error initializing payment: ' + error.message);
       return false;
     }
   }
@@ -195,6 +204,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     try {
       console.log('Confirming payment with Stripe...');
+      
+      if (!elements) {
+        throw new Error('Payment elements not initialized');
+      }
       
       // Submit payment to Stripe
       const { error } = await stripe.confirmPayment({
@@ -233,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       showPaymentMessage('Payment successful!', 'success');
       paymentModal.classList.remove('show');
+      paymentModal.style.display = 'none';
       return true;
     } catch (error) {
       console.error('Payment error:', error);
@@ -257,6 +271,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle payment form submission
   document.getElementById('submit-payment')?.addEventListener('click', async (e) => {
     e.preventDefault();
+    
+    // Check if payment element is ready
+    if (!elements) {
+      showPaymentMessage('Payment system is still initializing. Please wait a moment and try again.');
+      return;
+    }
+    
     const success = await processPayment();
     if (success) {
       // Continue with image processing
@@ -293,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reset payment button state
     const submitButton = document.getElementById('submit-payment');
     if (submitButton) {
-      submitButton.disabled = false;
+      submitButton.disabled = true; // Disable until the payment element is ready
       document.getElementById('spinner')?.classList.add('hidden');
       document.getElementById('button-text').textContent = 'Pay Now';
     }

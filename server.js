@@ -4,7 +4,39 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const OpenAI = require('openai');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Configure Stripe with fallback for development mode
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// Initialize Stripe only if we have a key or are in development mode
+let stripe;
+try {
+  if (stripeKey) {
+    stripe = require('stripe')(stripeKey);
+    console.log('Stripe initialized with provided API key');
+  } else if (isDevelopment) {
+    // In development, create a mock Stripe instance
+    console.log('Development mode: Using mock Stripe functionality');
+    stripe = {
+      paymentIntents: {
+        create: async () => ({
+          id: 'dev_' + Date.now(),
+          client_secret: 'dev_secret_' + Math.random().toString(36).substring(2)
+        }),
+        retrieve: async () => ({ status: 'succeeded' })
+      }
+    };
+  } else {
+    // In production, we need a real key
+    throw new Error('Stripe API key is required in production mode');
+  }
+} catch (error) {
+  console.error('Error initializing Stripe:', error);
+  if (!isDevelopment) {
+    process.exit(1); // Exit in production, but continue in development
+  }
+}
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -85,6 +117,28 @@ app.post('/create-payment-intent', async (req, res) => {
   try {
     console.log('Creating payment intent...');
     
+    if (isDevelopment) {
+      console.log('Development mode: Creating mock payment intent');
+      // Generate a fake client secret for development
+      const processingToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
+      
+      // Store the reference - pre-mark as paid in dev mode
+      processingTokens.set(processingToken, {
+        paymentIntentId: 'dev_' + Date.now(),
+        paid: true, // Already mark as paid to skip verification issues
+        timestamp: Date.now()
+      });
+      
+      console.log('Development mode: Created processing token:', processingToken);
+      
+      // Return the mock client secret
+      return res.json({
+        clientSecret: 'dev_secret_' + Math.random().toString(36).substring(2),
+        processingToken: processingToken,
+        devMode: true
+      });
+    }
+    
     // Production mode - use real Stripe API
     // Create a PaymentIntent
     const paymentIntent = await stripe.paymentIntents.create({
@@ -114,7 +168,7 @@ app.post('/create-payment-intent', async (req, res) => {
     console.error('Error creating payment intent:', error);
     
     // In development mode, create a mock payment intent even on error
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       console.log('Development mode: Creating mock payment intent after error');
       
       // Generate a fake client secret for development
@@ -162,6 +216,14 @@ app.post('/verify-payment', async (req, res) => {
       return res.json({ success: true });
     }
     
+    // Development mode special handling
+    if (isDevelopment) {
+      console.log('Development mode: Allowing payment verification without Stripe');
+      tokenData.paid = true;
+      processingTokens.set(processingToken, tokenData);
+      return res.json({ success: true });
+    }
+    
     // Verify the payment with Stripe
     try {
       console.log('Retrieving payment intent from Stripe:', tokenData.paymentIntentId);
@@ -204,7 +266,12 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
     }
     
     const tokenData = processingTokens.get(processingToken);
-    if (!tokenData.paid) {
+    
+    // Development mode special handling
+    if (isDevelopment) {
+      console.log('Development mode: Allowing processing without payment verification');
+      // No need to check payment status in development
+    } else if (!tokenData.paid) {
       console.error('Payment required for token:', processingToken);
       return res.status(402).json({ error: 'Payment required' });
     }
