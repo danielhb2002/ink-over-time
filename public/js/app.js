@@ -1,13 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
   // DOM Elements
   const tattooForm = document.getElementById('tattoo-form');
-  const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('tattoo-image');
-  const previewContainer = document.getElementById('preview-container');
-  const imagePreview = document.getElementById('imagePreview');
-  const removeImageBtn = document.getElementById('removeImage');
+  const fileInfo = document.getElementById('file-info');
   const timeframeSelect = document.getElementById('timeframe');
-  const processButton = document.getElementById('processButton');
   const resultSection = document.getElementById('result-section');
   const originalImage = document.getElementById('original-image');
   const agedImage = document.getElementById('aged-image');
@@ -17,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const paymentModal = document.getElementById('payment-modal');
   const closeModalButton = document.getElementById('close-modal');
   const paymentMessage = document.getElementById('payment-message');
-  const fileInfo = document.getElementById('file-info');
+  const submitButton = tattooForm ? tattooForm.querySelector('.submit-button') : null;
 
   // Stripe Variables
   let stripe;
@@ -33,99 +29,74 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('Stripe public key not found');
   }
 
-  // Drag and drop functionality
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropzone.addEventListener(eventName, preventDefaults, false);
-  });
-
-  function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  ['dragenter', 'dragover'].forEach(eventName => {
-    dropzone.addEventListener(eventName, highlight, false);
-  });
-  
-  ['dragleave', 'drop'].forEach(eventName => {
-    dropzone.addEventListener(eventName, unhighlight, false);
-  });
-
-  function highlight() {
-    dropzone.classList.add('dragover');
-  }
-  
-  function unhighlight() {
-    dropzone.classList.remove('dragover');
-  }
-
-  // Handle file drop
-  dropzone.addEventListener('drop', handleDrop, false);
-  
-  function handleDrop(e) {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    
-    if (files.length) {
-      fileInput.files = files;
-      handleFileSelect();
-    }
-  }
-
-  // Handle file selection through input
-  fileInput.addEventListener('change', handleFileSelect);
-  
-  function handleFileSelect() {
-    if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-      
-      // Check if file is an image
-      if (!file.type.match('image.*')) {
-        showError('Please select an image file (JPEG, PNG, or WebP)');
-        resetFileInput();
-        return;
+  // File Input Change Handler
+  if (fileInput) {
+    fileInput.addEventListener('change', function(e) {
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        
+        // Check if file is an image
+        if (!file.type.match('image.*')) {
+          showError('Please select an image file (JPEG, PNG, or WebP)');
+          resetFileInput();
+          return;
+        }
+        
+        // Check file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          showError('File size exceeds 5MB limit');
+          resetFileInput();
+          return;
+        }
+        
+        const fileName = fileInput.files[0].name;
+        if (fileInfo) fileInfo.textContent = fileName;
+        
+        // Validate form
+        validateForm();
+      } else {
+        if (fileInfo) fileInfo.textContent = 'No file selected';
+        validateForm();
       }
-      
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        showError('File size exceeds 5MB limit');
-        resetFileInput();
-        return;
-      }
-      
-      // Show image preview
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        imagePreview.src = e.target.result;
-        dropzone.classList.add('hidden');
-        previewContainer.classList.remove('hidden');
-        updateSubmitButton();
-      };
-      reader.readAsDataURL(file);
-    }
+    });
   }
 
-  // Remove selected image
-  removeImageBtn.addEventListener('click', () => {
-    resetFileInput();
-    previewContainer.classList.add('hidden');
-    dropzone.classList.remove('hidden');
-    updateSubmitButton();
-  });
+  // Helper function to reset file input
+  function resetFileInput() {
+    if (fileInput) fileInput.value = '';
+    if (fileInfo) fileInfo.textContent = 'No file selected';
+    validateForm();
+  }
 
-  // Handle timeframe selection
-  timeframeSelect.addEventListener('change', updateSubmitButton);
-  
-  function updateSubmitButton() {
-    const hasFile = fileInput.files.length > 0;
-    const hasTimeframe = timeframeSelect.value !== '';
+  // Validate form inputs
+  function validateForm() {
+    if (!submitButton) return;
     
-    processButton.disabled = !(hasFile && hasTimeframe);
+    const fileSelected = fileInput && fileInput.files.length > 0;
+    const timeSelected = timeframeSelect && timeframeSelect.value !== '';
+    
+    submitButton.disabled = !(fileSelected && timeSelected);
   }
 
-  // Modal close button
+  // Timeframe selection change
+  if (timeframeSelect) {
+    timeframeSelect.addEventListener('change', validateForm);
+  }
+
+  // Show error message
+  function showError(message) {
+    if (!errorMessage) return;
+    
+    errorMessage.textContent = message;
+    errorMessage.classList.remove('hidden');
+    setTimeout(() => {
+      errorMessage.classList.add('hidden');
+    }, 5000);
+  }
+
+  // Close modal button event
   if (closeModalButton) {
-    closeModalButton.addEventListener('click', () => {
+    closeModalButton.addEventListener('click', function() {
       console.log('Close button clicked');
       if (paymentModal) {
         paymentModal.classList.remove('show');
@@ -573,29 +544,5 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Payment modal not found in the DOM');
       }
     });
-  }
-  
-  // Helper functions
-  function resetFileInput() {
-    fileInput.value = '';
-    imagePreview.src = '#';
-  }
-  
-  function showError(message) {
-    if (!errorMessage) return;
-    
-    errorMessage.textContent = message;
-    errorMessage.classList.remove('hidden');
-    setTimeout(() => {
-      errorMessage.classList.add('hidden');
-    }, 5000);
-  }
-  
-  function showLoading(show) {
-    if (show) {
-      loadingOverlay.classList.remove('hidden');
-    } else {
-      loadingOverlay.classList.add('hidden');
-    }
   }
 }); 
