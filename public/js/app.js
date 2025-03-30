@@ -131,11 +131,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize payment form
   async function initializePayment() {
     if (!stripe) {
+      console.error('Stripe not initialized - missing publishable key');
       showError('Payment system is not available. Please ensure you have a proper internet connection and try again.');
       return false;
     }
 
     try {
+      // Log the Stripe key type 
+      const isLiveStripe = stripePublicKey.startsWith('pk_live');
+      console.log(`Initializing payment with ${isLiveStripe ? 'LIVE' : 'TEST'} Stripe key`);
+      
       // Create a payment intent on the server
       const response = await fetch('/create-payment-intent', {
         method: 'POST',
@@ -166,49 +171,60 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Missing client secret from server');
       }
       
-      // Create the payment form elements
-      elements = stripe.elements({
-        clientSecret: data.clientSecret,
-        appearance: {
-          theme: 'stripe',
-          variables: {
-            colorPrimary: '#6b62fd',
+      // Create the payment form elements with the returned client secret
+      try {
+        console.log('Creating Stripe Elements with client secret...');
+        elements = stripe.elements({
+          clientSecret: data.clientSecret,
+          appearance: {
+            theme: 'stripe',
+            variables: {
+              colorPrimary: '#6b62fd',
+            }
           }
-        }
-      });
-      
-      // Clear previous payment element if it exists
-      const paymentElementContainer = document.getElementById('payment-element');
-      paymentElementContainer.innerHTML = '';
-      
-      // Create and mount the payment element
-      paymentElement = elements.create('payment');
-      paymentElement.mount('#payment-element');
-      
-      // Add event listener for when the element is ready
-      return new Promise((resolve) => {
-        paymentElement.on('ready', function() {
-          console.log('Payment element ready');
-          document.getElementById('submit-payment').disabled = false;
-          resolve(true);
         });
         
-        // Add error listener
-        paymentElement.on('loaderror', function(event) {
-          console.error('Payment element loading error:', event);
-          showPaymentMessage('Error loading payment form: ' + (event.error?.message || 'Unknown error'));
-          resolve(false);
-        });
+        // Clear previous payment element if it exists
+        const paymentElementContainer = document.getElementById('payment-element');
+        paymentElementContainer.innerHTML = '';
         
-        // Set a timeout in case the element never loads
-        setTimeout(() => {
-          if (document.getElementById('submit-payment').disabled) {
-            console.warn('Payment element did not become ready in time');
-            showPaymentMessage('Payment form took too long to load. Try again or refresh the page.');
+        // Create and mount the payment element
+        console.log('Creating payment element...');
+        paymentElement = elements.create('payment');
+        
+        console.log('Mounting payment element...');
+        paymentElement.mount('#payment-element');
+        console.log('Payment element mounted to DOM');
+        
+        // Add event listener for when the element is ready
+        return new Promise((resolve) => {
+          // Enable button when element is ready
+          paymentElement.on('ready', function() {
+            console.log('Payment element ready event fired');
+            document.getElementById('submit-payment').disabled = false;
+            resolve(true);
+          });
+          
+          // Add error listener
+          paymentElement.on('loaderror', function(event) {
+            console.error('Payment element loading error:', event);
+            showPaymentMessage('Error loading payment form: ' + (event.error?.message || 'Unknown error'));
             resolve(false);
-          }
-        }, 10000);
-      });
+          });
+          
+          // Set a timeout in case the element never loads
+          setTimeout(() => {
+            if (document.getElementById('submit-payment').disabled) {
+              console.warn('Payment element did not become ready in time');
+              showPaymentMessage('Payment form took too long to load. Try again or refresh the page.');
+              resolve(false);
+            }
+          }, 10000);
+        });
+      } catch (stripeError) {
+        console.error('Error creating Stripe Elements:', stripeError);
+        throw stripeError;
+      }
     } catch (error) {
       console.error('Error initializing payment:', error);
       showPaymentMessage('Error initializing payment: ' + error.message);

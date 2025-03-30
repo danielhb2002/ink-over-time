@@ -14,6 +14,19 @@
     <script>
         const stripePublicKey = "<%= stripePublicKey %>";
         const paymentAmount = "<%= paymentAmount %>";
+        
+        // Check if we're using a live key or test key
+        const isLiveStripe = stripePublicKey && stripePublicKey.startsWith('pk_live');
+        console.log(`Using Stripe in ${isLiveStripe ? 'LIVE' : 'TEST'} mode`);
+        
+        // Debug element to track Stripe environment in the DOM
+        document.addEventListener('DOMContentLoaded', function() {
+            const debugElement = document.createElement('div');
+            debugElement.id = 'stripe-mode-indicator';
+            debugElement.style.display = 'none';
+            debugElement.dataset.mode = isLiveStripe ? 'live' : 'test';
+            document.body.appendChild(debugElement);
+        });
     </script>
 </head>
 <body>

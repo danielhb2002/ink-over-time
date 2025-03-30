@@ -5,10 +5,15 @@ const path = require('path');
 const fs = require('fs');
 const OpenAI = require('openai');
 
-// Configure Stripe with fallback for development mode
-const stripeKey = process.env.STRIPE_SECRET_KEY;
+// Determine environment
 const isDevelopment = process.env.NODE_ENV === 'development';
 console.log(`Running in ${isDevelopment ? 'development' : 'production'} mode`);
+
+// Configure Stripe with fallback
+let stripeKey = process.env.STRIPE_SECRET_KEY;
+// If the key starts with sk_live, we're in live mode
+const isLiveMode = stripeKey && stripeKey.startsWith('sk_live');
+console.log(`Stripe mode: ${isLiveMode ? 'LIVE' : 'TEST'}`);
 
 // Initialize Stripe only if we have a key or are in development mode
 let stripe;
@@ -104,11 +109,16 @@ app.get('/', (req, res) => {
   // Add demo mode flag - set to false to use the real API
   const demoMode = false; // Disabled demo mode to use real API
   
+  // Send the correct Stripe public key based on mode (test or live)
+  const stripePublicKey = isLiveMode 
+    ? process.env.STRIPE_LIVE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY 
+    : process.env.STRIPE_PUBLIC_KEY;
+  
   res.render('index', { 
     apiKeyConfigured, 
     demoMode,
     process: { env: { NODE_ENV: process.env.NODE_ENV || 'production' } },
-    stripePublicKey: process.env.STRIPE_PUBLIC_KEY || 'pk_test_placeholder',
+    stripePublicKey: stripePublicKey || 'pk_test_placeholder',
     paymentAmount: (PAYMENT_AMOUNT / 100).toFixed(2) // Convert to pounds for display
   });
 });
