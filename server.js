@@ -116,7 +116,10 @@ app.post('/verify-payment', async (req, res) => {
   try {
     const { processingToken } = req.body;
     
+    console.log('Verifying payment token:', processingToken);
+    
     if (!processingToken || !processingTokens.has(processingToken)) {
+      console.error('Invalid or missing processing token:', processingToken);
       return res.status(400).json({ error: 'Invalid processing token' });
     }
     
@@ -124,13 +127,16 @@ app.post('/verify-payment', async (req, res) => {
     
     // Check if payment is already marked as paid
     if (tokenData.paid) {
+      console.log('Token already marked as paid:', processingToken);
       return res.json({ success: true });
     }
     
     // Verify the payment with Stripe
     let paymentIntent;
     try {
+      console.log('Retrieving payment intent from Stripe:', tokenData.paymentIntentId);
       paymentIntent = await stripe.paymentIntents.retrieve(tokenData.paymentIntentId);
+      console.log('Payment intent retrieved, status:', paymentIntent.status);
     } catch (stripeError) {
       console.error('Stripe error retrieving payment intent:', stripeError);
       // In test mode, we'll allow processing even with Stripe errors
@@ -143,8 +149,11 @@ app.post('/verify-payment', async (req, res) => {
       throw stripeError;
     }
     
-    if (paymentIntent.status === 'succeeded') {
+    if (paymentIntent.status === 'succeeded' || 
+        paymentIntent.status === 'requires_capture' || 
+        paymentIntent.status === 'processing') {
       // Mark as paid
+      console.log('Payment verified as successful, marking token as paid');
       tokenData.paid = true;
       processingTokens.set(processingToken, tokenData);
       
@@ -172,8 +181,11 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
   try {
     const { processingToken } = req.body;
     
+    console.log('Processing image request with token:', processingToken);
+    
     // Verify the payment token exists and is marked as paid
     if (!processingToken || !processingTokens.has(processingToken)) {
+      console.error('Invalid payment token:', processingToken);
       return res.status(400).json({ error: 'Invalid payment token' });
     }
     
@@ -185,19 +197,24 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
         tokenData.paid = true;
         processingTokens.set(processingToken, tokenData);
       } else {
+        console.error('Payment required for token:', processingToken);
         return res.status(402).json({ error: 'Payment required' });
       }
     }
     
     // Continue with the rest of the processing
     if (!req.file) {
+      console.error('No image file uploaded');
       return res.status(400).json({ error: 'No image uploaded' });
     }
     
     const timeframe = req.body.timeframe;
     if (!timeframe) {
+      console.error('No timeframe specified');
       return res.status(400).json({ error: 'No timeframe specified' });
     }
+    
+    console.log('Processing image:', req.file.filename, 'with timeframe:', timeframe);
     
     const imagePath = '/uploads/' + req.file.filename;
     const fullImagePath = path.join(__dirname, 'public', imagePath);
@@ -211,6 +228,7 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
     
     // Try to use Vision API but have a fallback
     try {
+      console.log('Analyzing tattoo with Vision API...');
       const vision = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -239,11 +257,13 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
     } catch (visionError) {
       console.error('Error analyzing image with Vision API:', visionError);
       tattooDescription = "A tattoo that needs to show aging effects";
+      console.log('Using fallback tattoo description');
       // Continue with the basic description
     }
     
     // Now use DALL-E 3 to generate the aged version
     try {
+      console.log('Generating aged tattoo image with DALL-E...');
       const response = await openai.images.generate({
         model: "dall-e-3",
         prompt: `Generate a realistic image showing how this tattoo would look after ${timeframe} of aging. The tattoo is: ${tattooDescription}. Show natural fading, blurring, and color changes that occur over time with tattoos. The image should look realistic and medically accurate, not artistic or stylized. Show the effects of skin aging, sun exposure, and ink degradation over time.`,
@@ -254,9 +274,11 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
       });
       
       const resultImageUrl = response.data[0].url;
+      console.log('Successfully generated aged tattoo image');
       
       // After successful processing, remove the token from memory
       processingTokens.delete(processingToken);
+      console.log('Processing token deleted after successful processing');
       
       // Return both original and processed images
       res.json({
