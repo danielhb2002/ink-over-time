@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="See how your tattoo will age over time with AI prediction. Upload your tattoo photo and visualize how it might look in 5, 10, or 20 years.">
+    <meta name="keywords" content="tattoo aging, tattoo fading, aged tattoo, tattoo over time, tattoo prediction, tattoo future, tattoo visualization, AI tattoo aging">
+    <meta name="author" content="InkOverTime">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="Ink Over Time - See How Your Tattoo Will Age">
+    <meta property="og:description" content="Upload your tattoo photo and see how it might look after 5, 10, or 20 years with our AI prediction tool.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<%= canonicalUrl %>">
+    <meta property="og:image" content="<%= canonicalUrl %>img/og-image.jpg">
+    
+    <link rel="canonical" href="<%= canonicalUrl %>">
+    <title>Ink Over Time - See How Your Tattoo Will Age</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/welcome.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+</head>
+<body class="welcome-page">
+    <div class="welcome-container">
+        <div class="welcome-content">
+            <div class="welcome-logo">
+                <span class="logo-text">Ink Over Time</span>
+            </div>
+            
+            <div class="welcome-message">
+                <h1>See Your Tattoo In The Future</h1>
+                <p>AI-powered tattoo aging visualization for £<%= paymentAmount %> per analysis</p>
+            </div>
+            
+            <div class="qr-section">
+                <div class="qr-container">
+                    <div id="qrcode"></div>
+                </div>
+                <p class="qr-text">Scan this to use on mobile</p>
+                <div class="qr-separator">
+                    <span>or</span>
+                </div>
+            </div>
+            
+            <div class="cta-section">
+                <a href="/app" class="start-button">Get Started Now</a>
+            </div>
+            
+            <div class="app-store-links">
+                <a href="#" class="app-store-button">
+                    <i class="fab fa-apple"></i> App Store
+                </a>
+                <a href="#" class="app-store-button">
+                    <i class="fab fa-google-play"></i> Google Play
+                </a>
+            </div>
+        </div>
+        
+        <div class="welcome-footer">
+            <p>&copy; 2025 Ink Over Time. All rights reserved.</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy Policy</a>
+                <a href="/terms">Terms of Service</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Generate QR code for the current website URL
+            const currentUrl = window.location.origin + "/app";
+            QRCode.toCanvas(document.getElementById('qrcode'), currentUrl, {
+                width: 200,
+                margin: 1,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff'
+                }
+            }, function(error) {
+                if (error) console.error(error);
+                console.log('QR code generated successfully!');
+            });
+        });
+    </script>
+</body>
+</html> 

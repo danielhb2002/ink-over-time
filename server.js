@@ -117,6 +117,30 @@ app.get('/', (req, res) => {
   // Add canonical URL for SEO
   const canonicalUrl = 'https://ink-over-time.onrender.com/';
   
+  // Render the welcome page as the landing page
+  res.render('welcome', { 
+    paymentAmount: (PAYMENT_AMOUNT / 100).toFixed(2), // Convert to pounds for display
+    canonicalUrl
+  });
+});
+
+// App route (original functionality)
+app.get('/app', (req, res) => {
+  // Check if OpenAI API key is configured
+  const apiKeyConfigured = process.env.OPENAI_API_KEY && 
+                          process.env.OPENAI_API_KEY !== 'your_openai_api_key_here';
+  
+  // Add demo mode flag - set to false to use the real API
+  const demoMode = false; // Disabled demo mode to use real API
+  
+  // Send the correct Stripe public key based on mode (test or live)
+  const stripePublicKey = isLiveMode 
+    ? process.env.STRIPE_LIVE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY 
+    : process.env.STRIPE_PUBLIC_KEY;
+  
+  // Add canonical URL for SEO
+  const canonicalUrl = 'https://ink-over-time.onrender.com/app';
+  
   res.render('index', { 
     apiKeyConfigured, 
     demoMode,

@@ -1,0 +1,241 @@
+/* Welcome Page Styles */
+.welcome-page {
+    background-color: #0c0c0e;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-image: linear-gradient(to bottom, rgba(12, 12, 14, 0.95), rgba(12, 12, 14, 0.8)), 
+                      url('/img/tattoo-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.welcome-container {
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 100vh;
+}
+
+.welcome-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 0;
+    flex-grow: 1;
+}
+
+.welcome-logo {
+    margin-bottom: 2rem;
+}
+
+.logo-text {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, #6772e5, #9e86ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.03em;
+}
+
+.welcome-message {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.welcome-message h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+    background: linear-gradient(90deg, #fff, #b3b9ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.welcome-message p {
+    font-size: 1.1rem;
+    color: #b0b7c3;
+    max-width: 80%;
+    margin: 0 auto;
+}
+
+.qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+    width: 100%;
+}
+
+.qr-container {
+    background-color: #fff;
+    padding: 1rem;
+    border-radius: 16px;
+    margin-bottom: 1rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+#qrcode {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#qrcode canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+.qr-text {
+    color: #b0b7c3;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+.qr-separator {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.qr-separator::before,
+.qr-separator::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.qr-separator::before {
+    left: 0;
+}
+
+.qr-separator::after {
+    right: 0;
+}
+
+.qr-separator span {
+    display: inline-block;
+    padding: 0 10px;
+    background-color: #0c0c0e;
+    position: relative;
+    color: #b0b7c3;
+}
+
+.cta-section {
+    margin-bottom: 2rem;
+    width: 100%;
+}
+
+.start-button {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(90deg, #6772e5, #9e86ff);
+    color: #fff;
+    text-align: center;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba(103, 114, 229, 0.4);
+}
+
+.start-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(103, 114, 229, 0.5);
+}
+
+.app-store-links {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.app-store-button {
+    padding: 0.8rem 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.app-store-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-store-button i {
+    font-size: 1.2rem;
+}
+
+.welcome-footer {
+    padding: 1.5rem 0;
+    text-align: center;
+    color: #6c7589;
+    font-size: 0.9rem;
+}
+
+.footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.footer-links a {
+    color: #6c7589;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.footer-links a:hover {
+    color: #9e86ff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .welcome-message h1 {
+        font-size: 1.8rem;
+    }
+    
+    .welcome-message p {
+        font-size: 1rem;
+        max-width: 100%;
+    }
+    
+    .qr-container {
+        padding: 0.8rem;
+    }
+    
+    .app-store-links {
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+    
+    .app-store-button {
+        justify-content: center;
+    }
+} 
