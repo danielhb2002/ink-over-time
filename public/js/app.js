@@ -129,37 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize payment form
   async function initializePayment() {
     if (!stripe) {
-      console.warn('Stripe is not available, but we will continue in development mode');
-      
-      try {
-        // Try to create a payment token even without Stripe
-        const response = await fetch('/create-payment-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to create payment intent');
-        }
-        
-        const data = await response.json();
-        processingToken = data.processingToken;
-        
-        if (data.devMode) {
-          console.log('Development mode payment initialized');
-          return true;
-        }
-        
-        // If we're not in dev mode but Stripe is missing, we can't proceed
-        if (!stripe) {
-          showError('Payment system is not available');
-          return false;
-        }
-      } catch (error) {
-        console.error('Error in dev mode initialization:', error);
-        showError('Error initializing payment: ' + error.message);
-        return false;
-      }
+      showError('Payment system is not available. Please ensure you have a proper internet connection and try again.');
+      return false;
     }
 
     try {
@@ -175,12 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const data = await response.json();
       processingToken = data.processingToken;
-      
-      // Check if we're in development mode
-      if (data.devMode) {
-        console.log('Development mode detected, skipping Stripe Elements');
-        return true;
-      }
       
       // Create the payment form elements
       elements = stripe.elements({
@@ -206,12 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Payment element ready');
       });
       
-      // Add event listener for any errors
-      paymentElement.on('loaderror', function(event) {
-        console.warn('Payment element loading error:', event);
-        // Continue anyway since we're in test mode
-      });
-      
       return true;
     } catch (error) {
       console.error('Error initializing payment:', error);
@@ -223,39 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Process payment
   async function processPayment() {
     if (!stripe || !elements) {
-      console.log('Stripe or elements not available, trying development mode');
-      
-      // Try to verify in development mode
-      try {
-        // Verify payment on the server
-        const verifyResponse = await fetch('/verify-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ processingToken })
-        });
-        
-        if (!verifyResponse.ok) {
-          const errorData = await verifyResponse.json();
-          throw new Error(errorData.error || 'Payment verification failed');
-        }
-        
-        const responseData = await verifyResponse.json();
-        
-        if (!responseData.success) {
-          throw new Error('Payment verification failed');
-        }
-        
-        showPaymentMessage('Payment successful!', 'success');
-        paymentModal.classList.remove('show');
-        return true;
-      } catch (error) {
-        console.error('Development mode payment error:', error);
-        showPaymentMessage(error.message || 'Payment failed');
-        document.getElementById('submit-payment').disabled = false;
-        document.getElementById('spinner').classList.add('hidden');
-        document.getElementById('button-text').textContent = 'Pay Now';
-        return false;
-      }
+      showError('Payment system is not available');
+      return false;
     }
     
     showPaymentMessage('Processing payment...');
@@ -278,15 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Handle Stripe errors
       if (error) {
         console.error('Stripe confirmation error:', error);
-        
-        // Some errors we can safely ignore for testing
-        if (error.type === 'validation_error' && 
-            error.message && 
-            (error.message.includes('domain') || error.message.includes('Element is not mounted'))) {
-          console.warn('Non-critical error in test mode - proceeding anyway');
-        } else {
-          throw error;
-        }
+        throw error;
       }
       
       console.log('Payment submitted, verifying with server...');
@@ -335,97 +255,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle payment form submission
   document.getElementById('submit-payment')?.addEventListener('click', async (e) => {
     e.preventDefault();
-    
-    // Check if we're in dev mode with a pre-paid token
-    if (!stripe || !elements) {
-      console.log('Development mode: proceeding directly to image processing');
-      paymentModal.classList.remove('show');
-      processImageWithPayment();
-      return;
-    }
-    
     const success = await processPayment();
     if (success) {
       // Continue with image processing
       processImageWithPayment();
-    }
-  });
-
-  // Handle development mode skip payment
-  document.getElementById('skip-payment')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    console.log('Development mode: Skipping payment');
-    
-    // Mark as success in development mode
-    paymentModal.classList.remove('show');
-    
-    // Create a token for processing
-    if (!processingToken) {
-      try {
-        const response = await fetch('/create-payment-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          console.error('Failed to create token');
-          return;
-        }
-        
-        const data = await response.json();
-        processingToken = data.processingToken;
-      } catch (error) {
-        console.error('Error creating token:', error);
-        return;
-      }
-    }
-    
-    // Continue with image processing
-    processImageWithPayment();
-  });
-
-  // Handle direct development process button
-  document.getElementById('devProcessButton')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    console.log('Development mode: Direct processing');
-    
-    if (!fileInput.files.length) {
-      showError('Please select an image');
-      return;
-    }
-    
-    if (!timeframeSelect.value) {
-      showError('Please select a timeframe');
-      return;
-    }
-
-    // Show loading overlay immediately
-    loadingOverlay.classList.remove('hidden');
-    
-    // Create a token for processing
-    try {
-      console.log('Creating development token...');
-      const response = await fetch('/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to create processing token');
-      }
-      
-      const data = await response.json();
-      processingToken = data.processingToken;
-      
-      // Force token to be considered paid on the client side
-      console.log('Development token created, proceeding with image processing');
-      
-      // Process the image
-      processImageWithPayment();
-    } catch (error) {
-      console.error('Error in development processing:', error);
-      showError('Error: ' + error.message);
-      loadingOverlay.classList.add('hidden');
     }
   });
 

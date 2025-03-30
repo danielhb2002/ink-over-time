@@ -85,31 +85,6 @@ app.post('/create-payment-intent', async (req, res) => {
   try {
     console.log('Creating payment intent...');
     
-    // In development mode, create a fake payment intent
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Development mode: Creating mock payment intent');
-      
-      // Generate a fake client secret for development
-      const fakeClientSecret = 'pi_' + Date.now() + '_secret_' + Math.random().toString(36).substring(2);
-      const processingToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
-      
-      // Store the reference
-      processingTokens.set(processingToken, {
-        paymentIntentId: 'dev_' + Date.now(),
-        paid: false, // Will be marked as paid when verified
-        timestamp: Date.now()
-      });
-      
-      console.log('Development mode: Created processing token:', processingToken);
-      
-      // Return the mock client secret
-      return res.json({
-        clientSecret: fakeClientSecret,
-        processingToken: processingToken,
-        devMode: true
-      });
-    }
-    
     // Production mode - use real Stripe API
     // Create a PaymentIntent
     const paymentIntent = await stripe.paymentIntents.create({
@@ -131,7 +106,7 @@ app.post('/create-payment-intent', async (req, res) => {
     console.log('Created payment intent with ID:', paymentIntent.id);
     
     // Return the client secret and processing token to the client
-    res.json({
+    return res.json({
       clientSecret: paymentIntent.client_secret,
       processingToken: processingToken
     });
@@ -188,44 +163,27 @@ app.post('/verify-payment', async (req, res) => {
     }
     
     // Verify the payment with Stripe
-    let paymentIntent;
     try {
       console.log('Retrieving payment intent from Stripe:', tokenData.paymentIntentId);
-      paymentIntent = await stripe.paymentIntents.retrieve(tokenData.paymentIntentId);
+      const paymentIntent = await stripe.paymentIntents.retrieve(tokenData.paymentIntentId);
       console.log('Payment intent retrieved, status:', paymentIntent.status);
-    } catch (stripeError) {
-      console.error('Stripe error retrieving payment intent:', stripeError);
-      // In test mode, we'll allow processing even with Stripe errors
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Test mode: Marking payment as successful despite Stripe error');
+      
+      if (paymentIntent.status === 'succeeded' || 
+          paymentIntent.status === 'requires_capture' || 
+          paymentIntent.status === 'processing') {
+        // Mark as paid
+        console.log('Payment verified as successful, marking token as paid');
         tokenData.paid = true;
         processingTokens.set(processingToken, tokenData);
-        return res.json({ success: true, testMode: true });
+        
+        return res.json({ success: true });
       }
-      throw stripeError;
-    }
-    
-    if (paymentIntent.status === 'succeeded' || 
-        paymentIntent.status === 'requires_capture' || 
-        paymentIntent.status === 'processing') {
-      // Mark as paid
-      console.log('Payment verified as successful, marking token as paid');
-      tokenData.paid = true;
-      processingTokens.set(processingToken, tokenData);
       
-      return res.json({ success: true });
+      return res.status(402).json({ error: 'Payment required', paymentStatus: paymentIntent.status });
+    } catch (stripeError) {
+      console.error('Stripe error retrieving payment intent:', stripeError);
+      return res.status(500).json({ error: 'Failed to verify payment with Stripe' });
     }
-    
-    // In test mode, allow processing even if payment is not successful
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Test mode: Marking payment as successful despite status:', paymentIntent.status);
-      tokenData.paid = true;
-      processingTokens.set(processingToken, tokenData);
-      return res.json({ success: true, testMode: true });
-    }
-    
-    return res.status(402).json({ error: 'Payment required', paymentStatus: paymentIntent.status });
-    
   } catch (error) {
     console.error('Error verifying payment:', error);
     res.status(500).json({ error: 'Failed to verify payment' });
@@ -247,15 +205,8 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
     
     const tokenData = processingTokens.get(processingToken);
     if (!tokenData.paid) {
-      // In development mode, allow processing even without payment
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Development mode: Allowing processing without payment verification');
-        tokenData.paid = true;
-        processingTokens.set(processingToken, tokenData);
-      } else {
-        console.error('Payment required for token:', processingToken);
-        return res.status(402).json({ error: 'Payment required' });
-      }
+      console.error('Payment required for token:', processingToken);
+      return res.status(402).json({ error: 'Payment required' });
     }
     
     // Continue with the rest of the processing
