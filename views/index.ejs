@@ -20,10 +20,13 @@
     <title>Ink Over Time - See How Your Tattoo Will Age</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/welcome.css">
+    <link rel="stylesheet" href="/css/app.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.4.0/css/all.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.4.0/css/all.css"></noscript>
     <script src="https://js.stripe.com/v3/"></script>
     <script>
         const stripePublicKey = "<%= stripePublicKey %>";
@@ -61,119 +64,107 @@
     }
     </script>
 </head>
-<body>
-    <div class="container">
+<body class="app-page">
+    <div class="app-container">
         <header>
-            <h1><i class="fas fa-hourglass-half" aria-hidden="true"></i> InkOverTime</h1>
-            <p>See how your tattoo will look over time</p>
+            <div class="logo">
+                <span class="logo-text">Ink Over Time</span>
+            </div>
         </header>
 
         <main>
-            <% if (typeof apiKeyConfigured !== 'undefined' && !apiKeyConfigured) { %>
-                <div class="api-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>OpenAI API key not configured! Please set your OpenAI API key in the .env file before using this application.</p>
-                </div>
-            <% } %>
-            
-            <% if (typeof demoMode !== 'undefined' && demoMode) { %>
-                <div class="demo-warning">
-                    <i class="fas fa-info-circle"></i>
-                    <p>Demo Mode: This app is running in demo mode due to API credit limitations. 
-                    Uploads will work, but the aging results will use demonstration images instead of AI-generated ones.</p>
-                </div>
-            <% } %>
-            
+            <section class="hero">
+                <h1>See Your Tattoo In The Future</h1>
+                <p>Upload a photo of your tattoo and we'll show you how it might look over time.</p>
+            </section>
+
             <section class="upload-section">
-                <div class="pricing-info">
-                    <p class="price-tag"><i class="fas fa-tag"></i> £<%= paymentAmount %> per analysis</p>
-                    <p class="price-info">See how your tattoo will age using advanced AI</p>
-                </div>
-
-                <form id="tattooForm" enctype="multipart/form-data">
+                <form id="tattoo-form" enctype="multipart/form-data">
                     <div class="file-input-container">
-                        <div class="dropzone" id="dropzone">
-                            <i class="fas fa-upload"></i>
-                            <p>Drag & drop a tattoo image here or click to browse</p>
-                            <input type="file" id="tattooImage" name="tattooImage" accept="image/jpeg, image/png, image/webp" required>
-                        </div>
-                        <div id="preview-container" class="hidden">
-                            <img id="imagePreview" src="#" alt="Preview">
-                            <button type="button" id="removeImage"><i class="fas fa-times"></i></button>
-                        </div>
+                        <label for="tattoo-image" class="custom-file-upload">
+                            <span class="upload-icon"><i class="fas fa-camera"></i></span>
+                            <span>Choose tattoo photo</span>
+                        </label>
+                        <input type="file" id="tattoo-image" name="tattooImage" accept="image/jpeg, image/png, image/webp">
+                        <div class="file-info" id="file-info">No file selected</div>
                     </div>
-
-                    <div class="time-selector">
+                    <div class="timeframe-container">
                         <label for="timeframe">How far into the future?</label>
-                        <select id="timeframe" name="timeframe" required>
-                            <option value="" disabled selected>Select timeframe</option>
-                            <option value="1 year">1 Year</option>
-                            <option value="5 years">5 Years</option>
-                            <option value="10 years">10 Years</option>
-                            <option value="20 years">20 Years</option>
-                            <option value="30 years">30 Years</option>
+                        <select id="timeframe" name="timeframe">
+                            <option value="">Select timeframe</option>
+                            <option value="5 years">5 years</option>
+                            <option value="10 years">10 years</option>
+                            <option value="20 years">20 years</option>
                         </select>
                     </div>
-
-                    <button type="submit" id="processButton" disabled>
-                        <i class="fas fa-credit-card"></i> Pay £<%= paymentAmount %> and See How It Ages
+                    <button type="submit" class="submit-button" disabled>
+                        <span class="pay-icon"><i class="fas fa-credit-card"></i></span> 
+                        Pay £<%= paymentAmount %> and See How It Ages
                     </button>
                 </form>
             </section>
             
-            <!-- Payment Modal -->
-            <div id="paymentModal" class="modal hidden">
-                <div class="modal-content">
-                    <span class="close">&times;</span>
-                    <h2>Payment</h2>
-                    <p class="payment-amount">Amount: £<%= paymentAmount %></p>
-                    <div id="payment-element">
-                        <!-- Stripe Elements will be inserted here -->
+            <section class="result-section hidden" id="result-section">
+                <div class="result-container">
+                    <div class="original-image">
+                        <h2>Original Tattoo</h2>
+                        <div class="image-container">
+                            <img id="original-image" src="" alt="Original tattoo">
+                        </div>
                     </div>
-                    <div id="payment-message" class="payment-message hidden"></div>
+                    <div class="aged-image">
+                        <h2>Aged Tattoo</h2>
+                        <div class="image-container">
+                            <img id="aged-image" src="" alt="Aged tattoo">
+                        </div>
+                    </div>
+                </div>
+                <div class="tattoo-description" id="tattoo-description">
+                    <h3>Analysis</h3>
+                    <p id="description-text"></p>
+                </div>
+                <div class="back-button-container">
+                    <a href="/app" class="back-button">
+                        <i class="fas fa-redo"></i> Process Another Tattoo
+                    </a>
+                </div>
+            </section>
+            
+            <div class="loading-overlay hidden" id="loading-overlay">
+                <div class="loading-spinner"></div>
+                <div class="loading-message">Processing your tattoo...</div>
+            </div>
+            
+            <div class="error-message hidden" id="error-message"></div>
+        </main>
+        
+        <!-- Payment Modal -->
+        <div class="modal" id="payment-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Payment</h2>
+                    <div class="close-button" id="close-modal">×</div>
+                </div>
+                <div class="modal-body">
+                    <p class="amount-text">Amount: £<%= paymentAmount %></p>
+                    <div id="payment-element"></div>
                     <button id="submit-payment" class="payment-button">
-                        <div class="spinner hidden" id="spinner"></div>
+                        <div id="spinner" class="spinner hidden"></div>
                         <span id="button-text">Pay Now</span>
                     </button>
+                    <div id="payment-message" class="payment-message hidden"></div>
                 </div>
             </div>
-
-            <section id="results" class="results-section hidden">
-                <h2>Results</h2>
-                <div class="results-container">
-                    <div class="result-card">
-                        <h3>Original</h3>
-                        <div class="image-container">
-                            <img id="originalImage" src="#" alt="Original Tattoo">
-                        </div>
-                    </div>
-                    <div class="result-card">
-                        <h3>After <span id="timeframeResult"></span></h3>
-                        <div class="image-container">
-                            <img id="processedImage" src="#" alt="Aged Tattoo">
-                        </div>
-                    </div>
-                </div>
-                <button id="newImageButton" class="secondary-button">
-                    <i class="fas fa-redo"></i> Process Another Image
-                </button>
-            </section>
-
-            <div id="loadingOverlay" class="loading-overlay hidden">
-                <div class="loading-content">
-                    <div class="spinner"></div>
-                    <p>Creating your aged tattoo preview...</p>
-                    <p class="small">This may take up to 30 seconds</p>
-                </div>
-            </div>
-        </main>
-
+        </div>
+        
         <footer>
-            <p>&copy; 2023 InkOverTime | <a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></p>
-            <p class="disclaimer">Results are AI-generated and for informational purposes only. Actual tattoo aging may differ.</p>
+            <p>&copy; 2025 Ink Over Time. All rights reserved.</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy Policy</a>
+                <a href="/terms">Terms of Service</a>
+            </div>
         </footer>
     </div>
-
     <script src="/js/app.js"></script>
 </body>
 </html> 
