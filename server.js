@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const OpenAI = require('openai');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -25,6 +26,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Parse JSON in request body
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Set payment amount
+const PAYMENT_AMOUNT = 299; // £2.99 in pence
+
+// In-memory store of processing tokens (in production, use a database)
+const processingTokens = new Map();
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
@@ -64,14 +71,96 @@ app.get('/', (req, res) => {
   // Add demo mode flag - set to false to use the real API
   const demoMode = false; // Disabled demo mode to use real API
   
-  res.render('index', { apiKeyConfigured, demoMode });
+  res.render('index', { 
+    apiKeyConfigured, 
+    demoMode,
+    stripePublicKey: process.env.STRIPE_PUBLIC_KEY || 'pk_test_placeholder',
+    paymentAmount: (PAYMENT_AMOUNT / 100).toFixed(2) // Convert to pounds for display
+  });
 });
 
+// Create a Stripe payment intent
+app.post('/create-payment-intent', async (req, res) => {
+  try {
+    // Create a PaymentIntent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: PAYMENT_AMOUNT,
+      currency: 'gbp',
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    // Store a reference to this payment for verification later
+    const processingToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
+    processingTokens.set(processingToken, {
+      paymentIntentId: paymentIntent.id,
+      paid: false,
+      timestamp: Date.now()
+    });
+
+    // Return the client secret and processing token to the client
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      processingToken: processingToken
+    });
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    res.status(500).json({ error: 'Failed to create payment intent' });
+  }
+});
+
+// Endpoint to verify payment was successful before processing
+app.post('/verify-payment', async (req, res) => {
+  try {
+    const { processingToken } = req.body;
+    
+    if (!processingToken || !processingTokens.has(processingToken)) {
+      return res.status(400).json({ error: 'Invalid processing token' });
+    }
+    
+    const tokenData = processingTokens.get(processingToken);
+    
+    // Check if payment is already marked as paid
+    if (tokenData.paid) {
+      return res.json({ success: true });
+    }
+    
+    // Verify the payment with Stripe
+    const paymentIntent = await stripe.paymentIntents.retrieve(tokenData.paymentIntentId);
+    
+    if (paymentIntent.status === 'succeeded') {
+      // Mark as paid
+      tokenData.paid = true;
+      processingTokens.set(processingToken, tokenData);
+      
+      return res.json({ success: true });
+    }
+    
+    return res.status(402).json({ error: 'Payment required', paymentStatus: paymentIntent.status });
+    
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    res.status(500).json({ error: 'Failed to verify payment' });
+  }
+});
+
+// Handle the file upload and processing with payment verification
 app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
   try {
-    // Check if we want to use demo mode (no API calls)
-    const demoMode = false; // Disabled demo mode to use real API
+    const { processingToken } = req.body;
     
+    // Verify the payment token exists and is marked as paid
+    if (!processingToken || !processingTokens.has(processingToken)) {
+      return res.status(400).json({ error: 'Invalid payment token' });
+    }
+    
+    const tokenData = processingTokens.get(processingToken);
+    if (!tokenData.paid) {
+      return res.status(402).json({ error: 'Payment required' });
+    }
+    
+    // Continue with the rest of the processing
     if (!req.file) {
       return res.status(400).json({ error: 'No image uploaded' });
     }
@@ -82,39 +171,6 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
     }
     
     const imagePath = '/uploads/' + req.file.filename;
-    
-    if (demoMode) {
-      // In demo mode, return the original image and a pre-rendered aged version
-      // For demo purposes, we'll select a demo image based on the timeframe
-      
-      // Different demo images based on timeframe
-      let demoImageUrl;
-      
-      if (timeframe.includes('1 year') || timeframe.includes('5 years')) {
-        // Minor fading for shorter timeframes
-        demoImageUrl = 'https://static.vecteezy.com/system/resources/previews/021/952/465/original/ai-generated-aged-tattoo-on-skin-detailed-old-tattoo-ink-after-years-of-wear-photo.jpg';
-      } else if (timeframe.includes('10 years')) {
-        // Medium fading for mid-range timeframes
-        demoImageUrl = 'https://static.vecteezy.com/system/resources/previews/021/952/482/original/ai-generated-aged-tattoo-on-skin-detailed-old-tattoo-ink-after-years-of-wear-photo.jpg';
-      } else {
-        // Heavy fading for long timeframes (20+ years)
-        demoImageUrl = 'https://static.vecteezy.com/system/resources/previews/021/952/454/original/ai-generated-aged-tattoo-on-skin-detailed-old-tattoo-ink-after-years-of-wear-photo.jpg';
-      }
-      
-      // Return both original and a fake "processed" image
-      setTimeout(() => {
-        res.json({
-          originalImage: imagePath,
-          processedImage: demoImageUrl,
-          timeframe: timeframe,
-          demoMode: true
-        });
-      }, 2000); // Fake 2-second processing time for realism
-      
-      return;
-    }
-    
-    // If not in demo mode, proceed with actual API calls (which likely won't work due to quota)
     const fullImagePath = path.join(__dirname, 'public', imagePath);
     
     // Convert image to base64 for display
@@ -170,6 +226,9 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
       
       const resultImageUrl = response.data[0].url;
       
+      // After successful processing, remove the token from memory
+      processingTokens.delete(processingToken);
+      
       // Return both original and processed images
       res.json({
         originalImage: imagePath,
@@ -184,6 +243,7 @@ app.post('/process-image', upload.single('tattooImage'), async (req, res) => {
         message: 'There was an error with the OpenAI API. You may need to check your API key or account credits.'
       });
     }
+    
   } catch (error) {
     console.error('Error processing image:', error);
     res.status(500).json({ error: 'Error processing image', details: error.message });

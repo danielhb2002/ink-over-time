@@ -6,6 +6,7 @@
     <title>InkOverTime - See How Your Tattoo Will Age</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
     <div class="container">
@@ -31,6 +32,11 @@
             <% } %>
             
             <section class="upload-section">
+                <div class="pricing-info">
+                    <p class="price-tag"><i class="fas fa-tag"></i> £<%= paymentAmount %> per analysis</p>
+                    <p class="price-info">See how your tattoo will age using advanced AI</p>
+                </div>
+
                 <form id="tattooForm" enctype="multipart/form-data">
                     <div class="file-input-container">
                         <div class="dropzone" id="dropzone">
@@ -57,10 +63,27 @@
                     </div>
 
                     <button type="submit" id="processButton" disabled>
-                        <i class="fas fa-magic"></i> See How It Ages
+                        <i class="fas fa-credit-card"></i> Pay £<%= paymentAmount %> and See How It Ages
                     </button>
                 </form>
             </section>
+            
+            <!-- Payment Modal -->
+            <div id="paymentModal" class="modal hidden">
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h2>Payment</h2>
+                    <p class="payment-amount">Amount: £<%= paymentAmount %></p>
+                    <div id="payment-element">
+                        <!-- Stripe Elements will be inserted here -->
+                    </div>
+                    <div id="payment-message" class="payment-message hidden"></div>
+                    <button id="submit-payment" class="payment-button">
+                        <div class="spinner hidden" id="spinner"></div>
+                        <span id="button-text">Pay Now</span>
+                    </button>
+                </div>
+            </div>
 
             <section id="results" class="results-section hidden">
                 <h2>Results</h2>
@@ -98,6 +121,9 @@
         </footer>
     </div>
 
+    <script>
+        const stripePublicKey = "<%= stripePublicKey %>";
+    </script>
     <script src="/js/app.js"></script>
 </body>
 </html> 
