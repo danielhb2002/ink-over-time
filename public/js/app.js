@@ -128,110 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initialize payment form
-  async function initializePayment() {
-    if (!stripe) {
-      console.error('Stripe not initialized - missing publishable key');
-      showError('Payment system is not available. Please ensure you have a proper internet connection and try again.');
-      return false;
-    }
-
-    try {
-      // Log the Stripe key type 
-      const isLiveStripe = stripePublicKey.startsWith('pk_live');
-      console.log(`Initializing payment with ${isLiveStripe ? 'LIVE' : 'TEST'} Stripe key`);
-      
-      // Create a payment intent on the server
-      const response = await fetch('/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server error response:', errorText);
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      processingToken = data.processingToken;
-      
-      console.log('Received client secret format:', data.clientSecret ? 'Valid' : 'Missing', 
-                  'Processing token:', processingToken ? 'Valid' : 'Missing',
-                  'Dev mode:', data.devMode ? 'Yes' : 'No');
-      
-      // Update dev mode indicator if present
-      const devModeIndicator = document.getElementById('dev-mode-indicator');
-      if (devModeIndicator && data.devMode) {
-        devModeIndicator.dataset.devMode = 'true';
-        console.log('Development mode detected from server response');
-      }
-      
-      if (!data.clientSecret) {
-        throw new Error('Missing client secret from server');
-      }
-      
-      // Create the payment form elements with the returned client secret
-      try {
-        console.log('Creating Stripe Elements with client secret...');
-        elements = stripe.elements({
-          clientSecret: data.clientSecret,
-          appearance: {
-            theme: 'stripe',
-            variables: {
-              colorPrimary: '#6b62fd',
-            }
-          }
-        });
-        
-        // Clear previous payment element if it exists
-        const paymentElementContainer = document.getElementById('payment-element');
-        paymentElementContainer.innerHTML = '';
-        
-        // Create and mount the payment element
-        console.log('Creating payment element...');
-        paymentElement = elements.create('payment');
-        
-        console.log('Mounting payment element...');
-        paymentElement.mount('#payment-element');
-        console.log('Payment element mounted to DOM');
-        
-        // Add event listener for when the element is ready
-        return new Promise((resolve) => {
-          // Enable button when element is ready
-          paymentElement.on('ready', function() {
-            console.log('Payment element ready event fired');
-            document.getElementById('submit-payment').disabled = false;
-            resolve(true);
-          });
-          
-          // Add error listener
-          paymentElement.on('loaderror', function(event) {
-            console.error('Payment element loading error:', event);
-            showPaymentMessage('Error loading payment form: ' + (event.error?.message || 'Unknown error'));
-            resolve(false);
-          });
-          
-          // Set a timeout in case the element never loads
-          setTimeout(() => {
-            if (document.getElementById('submit-payment').disabled) {
-              console.warn('Payment element did not become ready in time');
-              showPaymentMessage('Payment form took too long to load. Try again or refresh the page.');
-              resolve(false);
-            }
-          }, 10000);
-        });
-      } catch (stripeError) {
-        console.error('Error creating Stripe Elements:', stripeError);
-        throw stripeError;
-      }
-    } catch (error) {
-      console.error('Error initializing payment:', error);
-      showPaymentMessage('Error initializing payment: ' + error.message);
-      return false;
-    }
-  }
-
   // Process payment
   async function processPayment() {
     if (!stripe || !elements) {
@@ -241,6 +137,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Check if we're in development mode from the server response
     const devMode = document.getElementById('dev-mode-indicator')?.dataset?.devMode === 'true';
+    const isLiveStripe = stripePublicKey.startsWith('pk_live');
+    
+    // Log important state information
+    console.log(`Processing payment - Dev mode: ${devMode ? 'Yes' : 'No'}, Stripe mode: ${isLiveStripe ? 'LIVE' : 'TEST'}`);
     
     showPaymentMessage('Processing payment...');
     document.getElementById('submit-payment').disabled = true;
@@ -248,15 +148,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('button-text').textContent = 'Processing...';
     
     try {
-      console.log('Confirming payment with Stripe...');
-      
-      if (!elements) {
-        throw new Error('Payment elements not initialized');
-      }
-      
-      if (devMode) {
+      // Never mix dev mode with live keys
+      if (devMode && isLiveStripe) {
+        console.log('Development mode with live keys detected - using server-side verification only');
+        // Skip client-side payment confirmation with live keys in dev mode
+        // This avoids the issue where mock client secrets don't work with live Stripe
+      } else if (devMode) {
         console.log('Development mode detected - skipping actual payment confirmation');
       } else {
+        console.log('Confirming payment with Stripe...');
+        
+        if (!elements) {
+          throw new Error('Payment elements not initialized');
+        }
+        
         // Submit payment to Stripe
         const { error } = await stripe.confirmPayment({
           elements,
@@ -296,6 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
       showPaymentMessage('Payment successful!', 'success');
       paymentModal.classList.remove('show');
       paymentModal.style.display = 'none';
+      
+      // Continue with processing the image
       return true;
     } catch (error) {
       console.error('Payment error:', error);
@@ -303,6 +210,171 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('submit-payment').disabled = false;
       document.getElementById('spinner').classList.add('hidden');
       document.getElementById('button-text').textContent = 'Pay Now';
+      return false;
+    }
+  }
+
+  // Initialize payment form
+  async function initializePayment() {
+    if (!stripe) {
+      console.error('Stripe not initialized - missing publishable key');
+      showError('Payment system is not available. Please ensure you have a proper internet connection and try again.');
+      return false;
+    }
+
+    try {
+      // Log the Stripe key type 
+      const isLiveStripe = stripePublicKey.startsWith('pk_live');
+      console.log(`Initializing payment with ${isLiveStripe ? 'LIVE' : 'TEST'} Stripe key`);
+      
+      // Create a payment intent on the server
+      const response = await fetch('/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      processingToken = data.processingToken;
+      
+      console.log('Received client secret format:', data.clientSecret ? 'Valid' : 'Missing', 
+                  'Processing token:', processingToken ? 'Valid' : 'Missing',
+                  'Dev mode:', data.devMode ? 'Yes' : 'No');
+      
+      // Update dev mode indicator if present
+      const devModeIndicator = document.getElementById('dev-mode-indicator');
+      if (devModeIndicator) {
+        devModeIndicator.dataset.devMode = data.devMode ? 'true' : 'false';
+        console.log(`${data.devMode ? 'Development' : 'Production'} mode detected from server response`);
+      }
+      
+      if (!data.clientSecret) {
+        throw new Error('Missing client secret from server');
+      }
+      
+      // Special handling for live keys in dev mode
+      if (data.devMode && isLiveStripe) {
+        console.log('Warning: Using development mode with live Stripe keys');
+        console.log('Only server-side verification will be used');
+        
+        // In this case, we don't even try to mount the Stripe Elements
+        // Since mock client secrets don't work with live keys
+        document.getElementById('payment-element').innerHTML = `
+          <div class="dev-mode-notice">
+            <p>Using development mode with live Stripe keys.</p>
+            <p>Click "Pay Now" to test the payment flow.</p>
+          </div>
+        `;
+        document.getElementById('submit-payment').disabled = false;
+        return true;
+      }
+      
+      // Create the payment form elements with the returned client secret
+      try {
+        console.log('Creating Stripe Elements with client secret...');
+        elements = stripe.elements({
+          clientSecret: data.clientSecret,
+          appearance: {
+            theme: 'stripe',
+            variables: {
+              colorPrimary: '#6b62fd',
+            }
+          }
+        });
+        
+        // Clear previous payment element if it exists
+        const paymentElementContainer = document.getElementById('payment-element');
+        paymentElementContainer.innerHTML = '';
+        
+        // Create and mount the payment element
+        console.log('Creating payment element...');
+        paymentElement = elements.create('payment');
+        
+        console.log('Mounting payment element...');
+        paymentElement.mount('#payment-element');
+        console.log('Payment element mounted to DOM');
+        
+        // Add event listener for when the element is ready
+        return new Promise((resolve) => {
+          // Enable button when element is ready
+          paymentElement.on('ready', function() {
+            console.log('Payment element ready event fired');
+            document.getElementById('submit-payment').disabled = false;
+            resolve(true);
+          });
+          
+          // Add error listener
+          paymentElement.on('loaderror', function(event) {
+            console.error('Payment element loading error:', event);
+            
+            // Special handling for live mode errors
+            if (isLiveStripe) {
+              console.log('Live mode error - falling back to simple form');
+              document.getElementById('payment-element').innerHTML = `
+                <div class="dev-mode-notice">
+                  <p>Payment form could not be loaded with live keys in test mode.</p>
+                  <p>Click "Pay Now" to continue with the test flow.</p>
+                </div>
+              `;
+              document.getElementById('submit-payment').disabled = false;
+              resolve(true);
+              return;
+            }
+            
+            showPaymentMessage('Error loading payment form: ' + (event.error?.message || 'Unknown error'));
+            resolve(false);
+          });
+          
+          // Set a timeout in case the element never loads
+          setTimeout(() => {
+            if (document.getElementById('submit-payment').disabled) {
+              console.warn('Payment element did not become ready in time');
+              
+              // Special handling for live mode timeouts
+              if (isLiveStripe) {
+                console.log('Live mode timeout - falling back to simple form');
+                document.getElementById('payment-element').innerHTML = `
+                  <div class="dev-mode-notice">
+                    <p>Payment form timed out with live keys in test mode.</p>
+                    <p>Click "Pay Now" to continue with the test flow.</p>
+                  </div>
+                `;
+                document.getElementById('submit-payment').disabled = false;
+                resolve(true);
+                return;
+              }
+              
+              showPaymentMessage('Payment form took too long to load. Try again or refresh the page.');
+              resolve(false);
+            }
+          }, 10000);
+        });
+      } catch (stripeError) {
+        console.error('Error creating Stripe Elements:', stripeError);
+        
+        // Special handling for live mode errors
+        if (isLiveStripe) {
+          console.log('Live mode error - falling back to simple form');
+          document.getElementById('payment-element').innerHTML = `
+            <div class="dev-mode-notice">
+              <p>Payment form could not be initialized with live keys in test mode.</p>
+              <p>Click "Pay Now" to continue with the test flow.</p>
+            </div>
+          `;
+          document.getElementById('submit-payment').disabled = false;
+          return true;
+        }
+        
+        throw stripeError;
+      }
+    } catch (error) {
+      console.error('Error initializing payment:', error);
+      showPaymentMessage('Error initializing payment: ' + error.message);
       return false;
     }
   }

@@ -480,29 +480,27 @@ footer {
 .modal {
   display: none;
   position: fixed;
-  z-index: 2000;
-  left: 0;
   top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.6);
-  overflow: auto;
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
 }
 
 .modal.show {
   display: flex !important;
-  align-items: center;
-  justify-content: center;
 }
 
 .modal-content {
-  background-color: white;
-  padding: 2rem;
-  border-radius: var(--radius);
-  width: 90%;
+  background-color: #fff;
+  border-radius: 10px;
   max-width: 500px;
-  position: relative;
+  width: 100%;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
 }
 
 .close {
@@ -637,4 +635,26 @@ footer {
 
 .dev-process-button:hover {
   background-color: #138496;
+}
+
+/* Development Mode Notice */
+.dev-mode-notice {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.dev-mode-notice p {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dev-mode-notice p:last-child {
+  font-weight: bold;
+  color: #6b62fd;
 } 

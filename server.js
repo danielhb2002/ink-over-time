@@ -128,7 +128,11 @@ app.post('/create-payment-intent', async (req, res) => {
   try {
     console.log('Creating payment intent...');
     
-    if (isDevelopment) {
+    // Check if we're using a live key
+    const usingLiveStripe = stripeKey && stripeKey.startsWith('sk_live');
+    console.log(`Payment intent using ${usingLiveStripe ? 'LIVE' : 'TEST'} Stripe mode`);
+    
+    if (isDevelopment && !usingLiveStripe) {
       console.log('Development mode: Creating mock payment intent');
       // Generate a valid fake client secret for development
       const paymentIntentId = 'pi_' + Date.now();
@@ -152,36 +156,43 @@ app.post('/create-payment-intent', async (req, res) => {
       });
     }
     
-    // Production mode - use real Stripe API
-    // Create a PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: PAYMENT_AMOUNT,
-      currency: 'gbp',
-      automatic_payment_methods: {
-        enabled: true,
-      },
-    });
+    // Production mode or live key mode - use real Stripe API
+    try {
+      // Create a PaymentIntent with the real Stripe API
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: PAYMENT_AMOUNT,
+        currency: 'gbp',
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
 
-    // Store a reference to this payment for verification later
-    const processingToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
-    processingTokens.set(processingToken, {
-      paymentIntentId: paymentIntent.id,
-      paid: false,
-      timestamp: Date.now()
-    });
+      // Store a reference to this payment for verification later
+      const processingToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
+      processingTokens.set(processingToken, {
+        paymentIntentId: paymentIntent.id,
+        paid: false,
+        timestamp: Date.now()
+      });
 
-    console.log('Created payment intent with ID:', paymentIntent.id);
-    
-    // Return the client secret and processing token to the client
-    return res.json({
-      clientSecret: paymentIntent.client_secret,
-      processingToken: processingToken
-    });
+      console.log('Created payment intent with ID:', paymentIntent.id);
+      
+      // Return the client secret and processing token to the client
+      return res.json({
+        clientSecret: paymentIntent.client_secret,
+        processingToken: processingToken,
+        // Never send devMode=true for real Stripe API calls
+        devMode: false
+      });
+    } catch (stripeError) {
+      console.error('Stripe API error:', stripeError);
+      throw stripeError;
+    }
   } catch (error) {
     console.error('Error creating payment intent:', error);
     
     // In development mode, create a mock payment intent even on error
-    if (isDevelopment) {
+    if (isDevelopment && !stripeKey.startsWith('sk_live')) {
       console.log('Development mode: Creating mock payment intent after error');
       
       // Generate a fake client secret for development - MUST be in format 'pi_XXX_secret_YYY'
