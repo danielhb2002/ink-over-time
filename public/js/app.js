@@ -122,7 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Modal close button
   if (closeModalBtn) {
     closeModalBtn.addEventListener('click', () => {
+      console.log('Close button clicked');
       paymentModal.classList.remove('show');
+      paymentModal.style.display = 'none'; // Force display none
     });
   }
 
@@ -280,6 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Show and initialize payment modal
     paymentModal.classList.add('show');
+    paymentModal.style.display = 'flex'; // Force display flex
+    
+    console.log('Payment modal visibility:', paymentModal.style.display, 'Class list:', paymentModal.className);
     
     // Clear any previous payment messages
     paymentMessage.textContent = '';

@@ -490,7 +490,7 @@ footer {
 }
 
 .modal.show {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
 }
@@ -502,6 +502,7 @@ footer {
   width: 90%;
   max-width: 500px;
   position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .close {
