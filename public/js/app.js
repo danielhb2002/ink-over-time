@@ -143,11 +143,28 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to create payment intent');
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
       processingToken = data.processingToken;
+      
+      console.log('Received client secret format:', data.clientSecret ? 'Valid' : 'Missing', 
+                  'Processing token:', processingToken ? 'Valid' : 'Missing',
+                  'Dev mode:', data.devMode ? 'Yes' : 'No');
+      
+      // Update dev mode indicator if present
+      const devModeIndicator = document.getElementById('dev-mode-indicator');
+      if (devModeIndicator && data.devMode) {
+        devModeIndicator.dataset.devMode = 'true';
+        console.log('Development mode detected from server response');
+      }
+      
+      if (!data.clientSecret) {
+        throw new Error('Missing client secret from server');
+      }
       
       // Create the payment form elements
       elements = stripe.elements({
@@ -182,6 +199,15 @@ document.addEventListener('DOMContentLoaded', () => {
           showPaymentMessage('Error loading payment form: ' + (event.error?.message || 'Unknown error'));
           resolve(false);
         });
+        
+        // Set a timeout in case the element never loads
+        setTimeout(() => {
+          if (document.getElementById('submit-payment').disabled) {
+            console.warn('Payment element did not become ready in time');
+            showPaymentMessage('Payment form took too long to load. Try again or refresh the page.');
+            resolve(false);
+          }
+        }, 10000);
       });
     } catch (error) {
       console.error('Error initializing payment:', error);
@@ -197,6 +223,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
     
+    // Check if we're in development mode from the server response
+    const devMode = document.getElementById('dev-mode-indicator')?.dataset?.devMode === 'true';
+    
     showPaymentMessage('Processing payment...');
     document.getElementById('submit-payment').disabled = true;
     document.getElementById('spinner').classList.remove('hidden');
@@ -209,19 +238,23 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Payment elements not initialized');
       }
       
-      // Submit payment to Stripe
-      const { error } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: window.location.origin, // Not used, we stay on the same page
-        },
-        redirect: 'if_required'
-      });
-      
-      // Handle Stripe errors
-      if (error) {
-        console.error('Stripe confirmation error:', error);
-        throw error;
+      if (devMode) {
+        console.log('Development mode detected - skipping actual payment confirmation');
+      } else {
+        // Submit payment to Stripe
+        const { error } = await stripe.confirmPayment({
+          elements,
+          confirmParams: {
+            return_url: window.location.origin, // Not used, we stay on the same page
+          },
+          redirect: 'if_required'
+        });
+        
+        // Handle Stripe errors
+        if (error) {
+          console.error('Stripe confirmation error:', error);
+          throw error;
+        }
       }
       
       console.log('Payment submitted, verifying with server...');
@@ -319,10 +352,18 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('button-text').textContent = 'Pay Now';
     }
     
+    // Add hidden indicator for development mode
+    const devModeIndicator = document.createElement('div');
+    devModeIndicator.id = 'dev-mode-indicator';
+    devModeIndicator.style.display = 'none';
+    devModeIndicator.dataset.devMode = 'false';
+    paymentModal.appendChild(devModeIndicator);
+    
     // Initialize the payment form
     try {
       const initialized = await initializePayment();
       if (!initialized) {
+        console.warn('Payment initialization failed');
         showPaymentMessage('Could not initialize payment system. Please try again.');
       } else {
         console.log('Payment form initialized successfully');

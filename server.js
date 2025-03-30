@@ -8,6 +8,7 @@ const OpenAI = require('openai');
 // Configure Stripe with fallback for development mode
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 const isDevelopment = process.env.NODE_ENV === 'development';
+console.log(`Running in ${isDevelopment ? 'development' : 'production'} mode`);
 
 // Initialize Stripe only if we have a key or are in development mode
 let stripe;
@@ -21,8 +22,8 @@ try {
     stripe = {
       paymentIntents: {
         create: async () => ({
-          id: 'dev_' + Date.now(),
-          client_secret: 'dev_secret_' + Math.random().toString(36).substring(2)
+          id: 'pi_' + Date.now(),
+          client_secret: 'pi_' + Date.now() + '_secret_' + Math.random().toString(36).substring(2)
         }),
         retrieve: async () => ({ status: 'succeeded' })
       }
@@ -119,21 +120,23 @@ app.post('/create-payment-intent', async (req, res) => {
     
     if (isDevelopment) {
       console.log('Development mode: Creating mock payment intent');
-      // Generate a fake client secret for development
+      // Generate a valid fake client secret for development
+      const paymentIntentId = 'pi_' + Date.now();
+      const secretSuffix = Math.random().toString(36).substring(2);
       const processingToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
       
       // Store the reference - pre-mark as paid in dev mode
       processingTokens.set(processingToken, {
-        paymentIntentId: 'dev_' + Date.now(),
+        paymentIntentId: paymentIntentId,
         paid: true, // Already mark as paid to skip verification issues
         timestamp: Date.now()
       });
       
       console.log('Development mode: Created processing token:', processingToken);
       
-      // Return the mock client secret
+      // Return the mock client secret - MUST be in format 'pi_XXX_secret_YYY'
       return res.json({
-        clientSecret: 'dev_secret_' + Math.random().toString(36).substring(2),
+        clientSecret: `${paymentIntentId}_secret_${secretSuffix}`,
         processingToken: processingToken,
         devMode: true
       });
@@ -171,13 +174,14 @@ app.post('/create-payment-intent', async (req, res) => {
     if (isDevelopment) {
       console.log('Development mode: Creating mock payment intent after error');
       
-      // Generate a fake client secret for development
-      const fakeClientSecret = 'pi_' + Date.now() + '_secret_' + Math.random().toString(36).substring(2);
+      // Generate a fake client secret for development - MUST be in format 'pi_XXX_secret_YYY'
+      const paymentIntentId = 'pi_' + Date.now();
+      const secretSuffix = Math.random().toString(36).substring(2);
       const processingToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
       
       // Store the reference - pre-mark as paid in dev mode
       processingTokens.set(processingToken, {
-        paymentIntentId: 'dev_' + Date.now(),
+        paymentIntentId: paymentIntentId,
         paid: true, // Already mark as paid to skip verification issues
         timestamp: Date.now()
       });
@@ -186,7 +190,7 @@ app.post('/create-payment-intent', async (req, res) => {
       
       // Return the mock client secret
       return res.json({
-        clientSecret: fakeClientSecret,
+        clientSecret: `${paymentIntentId}_secret_${secretSuffix}`,
         processingToken: processingToken,
         devMode: true
       });
