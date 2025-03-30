@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let processingToken;
 
   // Initialize Stripe
-  if (stripePublicKey) {
+  if (typeof stripePublicKey !== 'undefined' && stripePublicKey) {
     stripe = Stripe(stripePublicKey);
     console.log('Stripe initialized with public key');
   } else {
@@ -127,13 +127,17 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closeModalButton) {
     closeModalButton.addEventListener('click', () => {
       console.log('Close button clicked');
-      paymentModal.classList.remove('show');
-      paymentModal.style.display = 'none'; // Force display none
+      if (paymentModal) {
+        paymentModal.classList.remove('show');
+        paymentModal.style.display = 'none'; // Force display none
+      }
     });
   }
 
   // Process image after payment
   async function processImageWithPayment() {
+    if (!paymentModal || !loadingOverlay || !fileInput || !timeframeSelect) return;
+    
     // Hide payment modal
     paymentModal.classList.remove('show');
     paymentModal.style.display = 'none';
@@ -165,19 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
       loadingOverlay.classList.add('hidden');
       
       // Display the results
-      originalImage.src = data.originalImage;
-      agedImage.src = data.processedImage;
-      descriptionText.textContent = data.description || 'No analysis available.';
+      if (originalImage) originalImage.src = data.originalImage;
+      if (agedImage) agedImage.src = data.processedImage;
+      if (descriptionText) descriptionText.textContent = data.description || 'No analysis available.';
       
       // Show results section
-      resultSection.classList.remove('hidden');
-      
-      // Scroll to results
-      resultSection.scrollIntoView({ behavior: 'smooth' });
+      if (resultSection) {
+        resultSection.classList.remove('hidden');
+        
+        // Scroll to results
+        resultSection.scrollIntoView({ behavior: 'smooth' });
+      }
       
     } catch (error) {
       console.error('Error processing image:', error);
-      loadingOverlay.classList.add('hidden');
+      if (loadingOverlay) loadingOverlay.classList.add('hidden');
       showError(error.message || 'Failed to process image. Please try again.');
     }
   }
@@ -197,9 +203,13 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log(`Processing payment - Dev mode: ${devMode ? 'Yes' : 'No'}, Stripe mode: ${isLiveStripe ? 'LIVE' : 'TEST'}`);
     
     showPaymentMessage('Processing payment...');
-    document.getElementById('submit-payment').disabled = true;
-    document.getElementById('spinner').classList.remove('hidden');
-    document.getElementById('button-text').textContent = 'Processing...';
+    const submitButton = document.getElementById('submit-payment');
+    const spinner = document.getElementById('spinner');
+    const buttonText = document.getElementById('button-text');
+    
+    if (submitButton) submitButton.disabled = true;
+    if (spinner) spinner.classList.remove('hidden');
+    if (buttonText) buttonText.textContent = 'Processing...';
     
     try {
       // Never mix dev mode with live keys
@@ -253,17 +263,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       showPaymentMessage('Payment successful!', 'success');
-      paymentModal.classList.remove('show');
-      paymentModal.style.display = 'none';
+      if (paymentModal) {
+        paymentModal.classList.remove('show');
+        paymentModal.style.display = 'none';
+      }
       
       // Continue with processing the image
       return true;
     } catch (error) {
       console.error('Payment error:', error);
       showPaymentMessage(error.message || 'Payment failed');
-      document.getElementById('submit-payment').disabled = false;
-      document.getElementById('spinner').classList.add('hidden');
-      document.getElementById('button-text').textContent = 'Pay Now';
+      if (submitButton) submitButton.disabled = false;
+      if (spinner) spinner.classList.add('hidden');
+      if (buttonText) buttonText.textContent = 'Pay Now';
       return false;
     }
   }
@@ -311,6 +323,9 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Missing client secret from server');
       }
       
+      const paymentElement = document.getElementById('payment-element');
+      const submitButton = document.getElementById('submit-payment');
+      
       // Special handling for live keys in dev mode
       if (data.devMode && isLiveStripe) {
         console.log('Warning: Using development mode with live Stripe keys');
@@ -318,13 +333,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // In this case, we don't even try to mount the Stripe Elements
         // Since mock client secrets don't work with live keys
-        document.getElementById('payment-element').innerHTML = `
-          <div class="dev-mode-notice">
-            <p>Using development mode with live Stripe keys.</p>
-            <p>Click "Pay Now" to test the payment flow.</p>
-          </div>
-        `;
-        document.getElementById('submit-payment').disabled = false;
+        if (paymentElement) {
+          paymentElement.innerHTML = `
+            <div class="dev-mode-notice">
+              <p>Using development mode with live Stripe keys.</p>
+              <p>Click "Pay Now" to test the payment flow.</p>
+            </div>
+          `;
+        }
+        
+        if (submitButton) submitButton.disabled = false;
         return true;
       }
       
@@ -348,8 +366,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         // Clear previous payment element if it exists
-        const paymentElementContainer = document.getElementById('payment-element');
-        paymentElementContainer.innerHTML = '';
+        if (paymentElement) {
+          paymentElement.innerHTML = '';
+        } else {
+          console.error('Payment element container not found in the DOM');
+          return false;
+        }
         
         // Create and mount the payment element
         console.log('Creating payment element...');
@@ -364,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
           // Enable button when element is ready
           paymentElement.on('ready', function() {
             console.log('Payment element ready event fired');
-            document.getElementById('submit-payment').disabled = false;
+            if (submitButton) submitButton.disabled = false;
             resolve(true);
           });
           
@@ -375,13 +397,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Special handling for live mode errors
             if (isLiveStripe) {
               console.log('Live mode error - falling back to simple form');
-              document.getElementById('payment-element').innerHTML = `
-                <div class="dev-mode-notice">
-                  <p>Payment form could not be loaded with live keys in test mode.</p>
-                  <p>Click "Pay Now" to continue with the test flow.</p>
-                </div>
-              `;
-              document.getElementById('submit-payment').disabled = false;
+              if (paymentElement) {
+                paymentElement.innerHTML = `
+                  <div class="dev-mode-notice">
+                    <p>Payment form could not be loaded with live keys in test mode.</p>
+                    <p>Click "Pay Now" to continue with the test flow.</p>
+                  </div>
+                `;
+              }
+              if (submitButton) submitButton.disabled = false;
               resolve(true);
               return;
             }
@@ -392,19 +416,21 @@ document.addEventListener('DOMContentLoaded', () => {
           
           // Set a timeout in case the element never loads
           setTimeout(() => {
-            if (document.getElementById('submit-payment').disabled) {
+            if (submitButton && submitButton.disabled) {
               console.warn('Payment element did not become ready in time');
               
               // Special handling for live mode timeouts
               if (isLiveStripe) {
                 console.log('Live mode timeout - falling back to simple form');
-                document.getElementById('payment-element').innerHTML = `
-                  <div class="dev-mode-notice">
-                    <p>Payment form timed out with live keys in test mode.</p>
-                    <p>Click "Pay Now" to continue with the test flow.</p>
-                  </div>
-                `;
-                document.getElementById('submit-payment').disabled = false;
+                if (paymentElement) {
+                  paymentElement.innerHTML = `
+                    <div class="dev-mode-notice">
+                      <p>Payment form timed out with live keys in test mode.</p>
+                      <p>Click "Pay Now" to continue with the test flow.</p>
+                    </div>
+                  `;
+                }
+                if (submitButton) submitButton.disabled = false;
                 resolve(true);
                 return;
               }
@@ -420,13 +446,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Special handling for live mode errors
         if (isLiveStripe) {
           console.log('Live mode error - falling back to simple form');
-          document.getElementById('payment-element').innerHTML = `
-            <div class="dev-mode-notice">
-              <p>Payment form could not be initialized with live keys in test mode.</p>
-              <p>Click "Pay Now" to continue with the test flow.</p>
-            </div>
-          `;
-          document.getElementById('submit-payment').disabled = false;
+          if (paymentElement) {
+            paymentElement.innerHTML = `
+              <div class="dev-mode-notice">
+                <p>Payment form could not be initialized with live keys in test mode.</p>
+                <p>Click "Pay Now" to continue with the test flow.</p>
+              </div>
+            `;
+          }
+          if (submitButton) submitButton.disabled = false;
           return true;
         }
         
@@ -441,6 +469,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Show payment message
   function showPaymentMessage(message, type = 'error') {
+    if (!paymentMessage) return;
+    
     paymentMessage.textContent = message;
     paymentMessage.className = 'payment-message';
     if (type === 'success') {
@@ -450,77 +480,100 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Handle payment form submission
-  document.getElementById('submit-payment')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    
-    // Check if payment element is ready
-    if (!elements) {
-      showPaymentMessage('Payment system is still initializing. Please wait a moment and try again.');
-      return;
-    }
-    
-    const success = await processPayment();
-    if (success) {
-      // Continue with image processing
-      processImageWithPayment();
-    }
-  });
+  const submitPaymentButton = document.getElementById('submit-payment');
+  if (submitPaymentButton) {
+    submitPaymentButton.addEventListener('click', async (e) => {
+      e.preventDefault();
+      
+      // Check if payment element is ready
+      if (!elements) {
+        showPaymentMessage('Payment system is still initializing. Please wait a moment and try again.');
+        return;
+      }
+      
+      const success = await processPayment();
+      if (success) {
+        // Continue with image processing
+        processImageWithPayment();
+      }
+    });
+  }
 
   // Handle form submission
-  tattooForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    if (!fileInput.files.length) {
-      showError('Please select an image');
-      return;
-    }
-    
-    if (!timeframeSelect.value) {
-      showError('Please select a timeframe');
-      return;
-    }
-    
-    console.log('Form submitted, showing payment modal');
-    
-    // Show and initialize payment modal
-    paymentModal.classList.add('show');
-    paymentModal.style.display = 'flex'; // Force display flex
-    
-    console.log('Payment modal visibility:', paymentModal.style.display, 'Class list:', paymentModal.className);
-    
-    // Clear any previous payment messages
-    paymentMessage.textContent = '';
-    paymentMessage.classList.add('hidden');
-    
-    // Reset payment button state
-    const submitButton = document.getElementById('submit-payment');
-    if (submitButton) {
-      submitButton.disabled = true; // Disable until the payment element is ready
-      document.getElementById('spinner')?.classList.add('hidden');
-      document.getElementById('button-text').textContent = 'Pay Now';
-    }
-    
-    // Add hidden indicator for development mode
-    const devModeIndicator = document.createElement('div');
-    devModeIndicator.id = 'dev-mode-indicator';
-    devModeIndicator.style.display = 'none';
-    devModeIndicator.dataset.devMode = 'false';
-    paymentModal.appendChild(devModeIndicator);
-    
-    // Initialize the payment form
-    try {
-      const initialized = await initializePayment();
-      if (!initialized) {
-        console.warn('Payment initialization failed');
-        showPaymentMessage('Could not initialize payment system. Please try again.');
-      } else {
-        console.log('Payment form initialized successfully');
+  if (tattooForm) {
+    tattooForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (!fileInput || !fileInput.files.length) {
+        showError('Please select an image');
+        return;
       }
-    } catch (error) {
-      console.error('Error initializing payment:', error);
-      showPaymentMessage('Payment initialization error: ' + error.message);
-    }
-  });
+      
+      if (!timeframeSelect || !timeframeSelect.value) {
+        showError('Please select a timeframe');
+        return;
+      }
+      
+      console.log('Form submitted, showing payment modal');
+      
+      // Show and initialize payment modal
+      if (paymentModal) {
+        paymentModal.classList.add('show');
+        paymentModal.style.display = 'flex'; // Force display flex
+        
+        console.log('Payment modal visibility:', paymentModal.style.display, 'Class list:', paymentModal.className);
+        
+        // Clear any previous payment messages
+        if (paymentMessage) {
+          paymentMessage.textContent = '';
+          paymentMessage.classList.add('hidden');
+        }
+        
+        // Reset payment button state
+        const submitButton = document.getElementById('submit-payment');
+        const spinner = document.getElementById('spinner');
+        const buttonText = document.getElementById('button-text');
+        
+        if (submitButton) {
+          submitButton.disabled = true; // Disable until the payment element is ready
+        }
+        
+        if (spinner) {
+          spinner.classList.add('hidden');
+        }
+        
+        if (buttonText) {
+          buttonText.textContent = 'Pay Now';
+        }
+        
+        // Add hidden indicator for development mode
+        let devModeIndicator = document.getElementById('dev-mode-indicator');
+        if (!devModeIndicator) {
+          devModeIndicator = document.createElement('div');
+          devModeIndicator.id = 'dev-mode-indicator';
+          devModeIndicator.style.display = 'none';
+          devModeIndicator.dataset.devMode = 'false';
+          paymentModal.appendChild(devModeIndicator);
+        }
+        
+        // Initialize the payment form
+        try {
+          const initialized = await initializePayment();
+          if (!initialized) {
+            console.warn('Payment initialization failed');
+            showPaymentMessage('Could not initialize payment system. Please try again.');
+          } else {
+            console.log('Payment form initialized successfully');
+          }
+        } catch (error) {
+          console.error('Error initializing payment:', error);
+          showPaymentMessage('Payment initialization error: ' + error.message);
+        }
+      } else {
+        console.error('Payment modal not found in the DOM');
+      }
+    });
+  }
   
   // Helper functions
   function resetFileInput() {
@@ -529,6 +582,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function showError(message) {
+    if (!errorMessage) return;
+    
     errorMessage.textContent = message;
     errorMessage.classList.remove('hidden');
     setTimeout(() => {
