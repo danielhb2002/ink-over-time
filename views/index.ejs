@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InkOverTime - See How Your Tattoo Will Age</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-hourglass-half"></i> InkOverTime</h1>
+            <p>See how your tattoo will look over time</p>
+        </header>
+
+        <main>
+            <% if (typeof apiKeyConfigured !== 'undefined' && !apiKeyConfigured) { %>
+                <div class="api-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>OpenAI API key not configured! Please set your OpenAI API key in the .env file before using this application.</p>
+                </div>
+            <% } %>
+            
+            <% if (typeof demoMode !== 'undefined' && demoMode) { %>
+                <div class="demo-warning">
+                    <i class="fas fa-info-circle"></i>
+                    <p>Demo Mode: This app is running in demo mode due to API credit limitations. 
+                    Uploads will work, but the aging results will use demonstration images instead of AI-generated ones.</p>
+                </div>
+            <% } %>
+            
+            <section class="upload-section">
+                <form id="tattooForm" enctype="multipart/form-data">
+                    <div class="file-input-container">
+                        <div class="dropzone" id="dropzone">
+                            <i class="fas fa-upload"></i>
+                            <p>Drag & drop a tattoo image here or click to browse</p>
+                            <input type="file" id="tattooImage" name="tattooImage" accept="image/jpeg, image/png, image/webp" required>
+                        </div>
+                        <div id="preview-container" class="hidden">
+                            <img id="imagePreview" src="#" alt="Preview">
+                            <button type="button" id="removeImage"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="time-selector">
+                        <label for="timeframe">How far into the future?</label>
+                        <select id="timeframe" name="timeframe" required>
+                            <option value="" disabled selected>Select timeframe</option>
+                            <option value="1 year">1 Year</option>
+                            <option value="5 years">5 Years</option>
+                            <option value="10 years">10 Years</option>
+                            <option value="20 years">20 Years</option>
+                            <option value="30 years">30 Years</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" id="processButton" disabled>
+                        <i class="fas fa-magic"></i> See How It Ages
+                    </button>
+                </form>
+            </section>
+
+            <section id="results" class="results-section hidden">
+                <h2>Results</h2>
+                <div class="results-container">
+                    <div class="result-card">
+                        <h3>Original</h3>
+                        <div class="image-container">
+                            <img id="originalImage" src="#" alt="Original Tattoo">
+                        </div>
+                    </div>
+                    <div class="result-card">
+                        <h3>After <span id="timeframeResult"></span></h3>
+                        <div class="image-container">
+                            <img id="processedImage" src="#" alt="Aged Tattoo">
+                        </div>
+                    </div>
+                </div>
+                <button id="newImageButton" class="secondary-button">
+                    <i class="fas fa-redo"></i> Process Another Image
+                </button>
+            </section>
+
+            <div id="loadingOverlay" class="loading-overlay hidden">
+                <div class="loading-content">
+                    <div class="spinner"></div>
+                    <p>Creating your aged tattoo preview...</p>
+                    <p class="small">This may take up to 30 seconds</p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2023 InkOverTime | <a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></p>
+            <p class="disclaimer">Results are AI-generated and for informational purposes only. Actual tattoo aging may differ.</p>
+        </footer>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html> 
