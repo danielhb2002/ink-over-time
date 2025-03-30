@@ -547,4 +547,45 @@ footer {
 
 .payment-message.success {
   color: var(--success);
+}
+
+/* Icon fallbacks */
+[class^="fas fa-"], [class*=" fas fa-"] {
+  /* Default styles for icons in case Font Awesome doesn't load */
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
+.fas.fa-hourglass-half:before {
+  content: "⌛";
+}
+
+.fas.fa-upload:before {
+  content: "↑";
+}
+
+.fas.fa-tag:before {
+  content: "🏷️";
+}
+
+.fas.fa-credit-card:before {
+  content: "💳";
+}
+
+.fas.fa-times:before {
+  content: "×";
+}
+
+.fas.fa-redo:before {
+  content: "↻";
+}
+
+.fas.fa-exclamation-triangle:before {
+  content: "⚠️";
+}
+
+.fas.fa-info-circle:before {
+  content: "ℹ️";
 } 
