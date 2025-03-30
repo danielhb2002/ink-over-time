@@ -1,32 +1,36 @@
 document.addEventListener('DOMContentLoaded', () => {
   // DOM Elements
-  const tattooForm = document.getElementById('tattooForm');
+  const tattooForm = document.getElementById('tattoo-form');
   const dropzone = document.getElementById('dropzone');
-  const fileInput = document.getElementById('tattooImage');
+  const fileInput = document.getElementById('tattoo-image');
   const previewContainer = document.getElementById('preview-container');
   const imagePreview = document.getElementById('imagePreview');
   const removeImageBtn = document.getElementById('removeImage');
   const timeframeSelect = document.getElementById('timeframe');
   const processButton = document.getElementById('processButton');
-  const resultsSection = document.getElementById('results');
-  const originalImage = document.getElementById('originalImage');
-  const processedImage = document.getElementById('processedImage');
-  const timeframeResult = document.getElementById('timeframeResult');
-  const newImageButton = document.getElementById('newImageButton');
-  const loadingOverlay = document.getElementById('loadingOverlay');
-  const paymentModal = document.getElementById('paymentModal');
-  const closeModalBtn = document.querySelector('.close');
+  const resultSection = document.getElementById('result-section');
+  const originalImage = document.getElementById('original-image');
+  const agedImage = document.getElementById('aged-image');
+  const descriptionText = document.getElementById('description-text');
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const errorMessage = document.getElementById('error-message');
+  const paymentModal = document.getElementById('payment-modal');
+  const closeModalButton = document.getElementById('close-modal');
   const paymentMessage = document.getElementById('payment-message');
+  const fileInfo = document.getElementById('file-info');
 
-  // Stripe elements
-  let stripe = null;
-  let elements = null;
-  let paymentElement = null;
-  let processingToken = null;
+  // Stripe Variables
+  let stripe;
+  let elements;
+  let paymentElement;
+  let processingToken;
 
-  // Initialize Stripe if available
-  if (typeof Stripe !== 'undefined' && stripePublicKey) {
+  // Initialize Stripe
+  if (stripePublicKey) {
     stripe = Stripe(stripePublicKey);
+    console.log('Stripe initialized with public key');
+  } else {
+    console.error('Stripe public key not found');
   }
 
   // Drag and drop functionality
@@ -120,12 +124,62 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Modal close button
-  if (closeModalBtn) {
-    closeModalBtn.addEventListener('click', () => {
+  if (closeModalButton) {
+    closeModalButton.addEventListener('click', () => {
       console.log('Close button clicked');
       paymentModal.classList.remove('show');
       paymentModal.style.display = 'none'; // Force display none
     });
+  }
+
+  // Process image after payment
+  async function processImageWithPayment() {
+    // Hide payment modal
+    paymentModal.classList.remove('show');
+    paymentModal.style.display = 'none';
+    
+    // Show loading overlay
+    loadingOverlay.classList.remove('hidden');
+    
+    // Get the form data
+    const formData = new FormData();
+    formData.append('tattooImage', fileInput.files[0]);
+    formData.append('timeframe', timeframeSelect.value);
+    formData.append('processingToken', processingToken);
+    
+    try {
+      // Send the image for processing
+      const response = await fetch('/process-image', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process image');
+      }
+      
+      const data = await response.json();
+      
+      // Hide loading overlay
+      loadingOverlay.classList.add('hidden');
+      
+      // Display the results
+      originalImage.src = data.originalImage;
+      agedImage.src = data.processedImage;
+      descriptionText.textContent = data.description || 'No analysis available.';
+      
+      // Show results section
+      resultSection.classList.remove('hidden');
+      
+      // Scroll to results
+      resultSection.scrollIntoView({ behavior: 'smooth' });
+      
+    } catch (error) {
+      console.error('Error processing image:', error);
+      loadingOverlay.classList.add('hidden');
+      showError(error.message || 'Failed to process image. Please try again.');
+    }
   }
 
   // Process payment
@@ -280,9 +334,15 @@ document.addEventListener('DOMContentLoaded', () => {
         elements = stripe.elements({
           clientSecret: data.clientSecret,
           appearance: {
-            theme: 'stripe',
+            theme: 'night',
             variables: {
-              colorPrimary: '#6b62fd',
+              colorPrimary: '#9e86ff',
+              colorBackground: '#1f2937',
+              colorText: '#f3f4f6',
+              colorDanger: '#ef4444',
+              fontFamily: 'Inter, system-ui, sans-serif',
+              spacingUnit: '4px',
+              borderRadius: '8px'
             }
           }
         });
@@ -462,72 +522,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Process image after payment
-  async function processImageWithPayment() {
-    console.log('Processing image with payment token:', processingToken);
-    
-    // Show loading overlay
-    loadingOverlay.classList.remove('hidden');
-    
-    // Create FormData for the file upload
-    const formData = new FormData();
-    formData.append('tattooImage', fileInput.files[0]);
-    formData.append('timeframe', timeframeSelect.value);
-    formData.append('processingToken', processingToken);
-    
-    try {
-      console.log('Sending image for processing...');
-      
-      // Send the image for processing
-      const response = await fetch('/process-image', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Server returned error:', errorData);
-        throw new Error(errorData.error || 'Image processing failed');
-      }
-      
-      const data = await response.json();
-      console.log('Processing successful, received data:', data);
-      
-      // Display the results
-      originalImage.src = data.originalImage;
-      processedImage.src = data.processedImage;
-      timeframeResult.textContent = data.timeframe;
-      
-      // Show results section, hide form
-      resultsSection.classList.remove('hidden');
-      
-      // Hide loading overlay
-      loadingOverlay.classList.add('hidden');
-      
-    } catch (error) {
-      console.error('Error processing image:', error);
-      showError(error.message || 'Error processing the image. Please try again.');
-      loadingOverlay.classList.add('hidden');
-    }
-  }
-
-  // Handle new image button
-  newImageButton.addEventListener('click', () => {
-    resetFileInput();
-    dropzone.classList.remove('hidden');
-    previewContainer.classList.add('hidden');
-    resultsSection.classList.add('hidden');
-    tattooForm.classList.remove('hidden');
-    
-    // Remove any demo warnings if they exist
-    const demoWarning = resultsSection.querySelector('.demo-warning');
-    if (demoWarning) {
-      demoWarning.remove();
-    }
-    
-    updateSubmitButton();
-  });
-  
   // Helper functions
   function resetFileInput() {
     fileInput.value = '';
@@ -535,7 +529,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function showError(message) {
-    alert(message);
+    errorMessage.textContent = message;
+    errorMessage.classList.remove('hidden');
+    setTimeout(() => {
+      errorMessage.classList.add('hidden');
+    }, 5000);
   }
   
   function showLoading(show) {
